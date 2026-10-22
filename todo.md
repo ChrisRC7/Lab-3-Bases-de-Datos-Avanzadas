@@ -13,21 +13,23 @@
 
 | Persona | Nombre | Bloque | TODO de código | Informe |
 | ------- | ------ | ------ | -------------- | ------- |
-| **A** | _______ | Pasos -1 a 6 (repo, clúster, datos, índices, oplog) | TODO 1 y 2 (`cargar.py`) | Pág. 1–2 (excepto lecturas) + **armar el PDF final** |
+| **A** | Fabricio Mena | Pasos -1 a 6 (repo, clúster, datos, índices, oplog) | TODO 1 y 2 (`cargar.py`) | Pág. 1–2 (excepto lecturas) + **armar el PDF final** |
 | **B** | _______ | Pasos 7 a 9 (lecturas, compra, write concern) | TODO 3 (`comprar.py`) y TODO 4 (`bench_write_concern.py`) | Lecturas + CAP/PACELC (pág. 2) y pág. 3 completa |
 | **C** | _______ | Pasos 10 a 13 (RPO y fallas A, B, C) | TODO 5 (`verificar_rpo.py`) | Pág. 4–6 (fallas) |
 
 
 ### Checklist — Persona A
-- [ ] Paso 0 · Requisitos + `make build` + `evidence/comandos.md`
-- [ ] Paso 1 · Leer Compose y levantar → `cluster-start.txt`
-- [ ] Paso 2 · `rs.initiate()` → 1 PRIMARY + 2 SECONDARY
-- [ ] Paso 3 · Inspeccionar → `rs-inspect.txt`
-- [ ] Paso 4 · Semilla → `datos-manifest.txt`
-- [ ] Paso 5 · **TODO 1 y 2** → `config-check.txt` (6/6), `explain-indices.txt` · 💾 commit
-- [ ] Paso 6 · Oplog → `oplog.txt` · 💾 commit
-- [ ] Informe pág. 1–2: diagrama, `rs.initiate()`, `rs.status`/`rs.conf`, explain, oplog
+- [x] Paso 0 · Requisitos + `make build` + `evidence/comandos.md`
+- [x] Paso 1 · Leer Compose y levantar → `cluster-start.txt`
+- [x] Paso 2 · `rs.initiate()` → 1 PRIMARY + 2 SECONDARY
+- [x] Paso 3 · Inspeccionar → `rs-inspect.txt`
+- [x] Paso 4 · Semilla → `datos-manifest.txt`
+- [x] Paso 5 · **TODO 1 y 2** → `config-check.txt` (6/6), `explain-indices.txt` · 💾 commit
+- [x] Paso 6 · Oplog → `oplog.txt` · 💾 commit
+- [x] Informe pág. 1–2: diagrama, `rs.initiate()`, `rs.status`/`rs.conf`, explain, oplog
+      En `labs/lab3-mongo-replicas/REPORTE.tex`; la tabla de lecturas del paso 7 la agrega B.
 - [ ] Unir el PDF + script "FALTA:" + lista de control final
+      Pendiente: necesita la evidencia y las secciones de B (pasos 7 a 9) y C (pasos 10 a 13).
 
 ### Checklist — Persona B
 
