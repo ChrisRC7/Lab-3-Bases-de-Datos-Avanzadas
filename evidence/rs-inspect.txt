@@ -1,0 +1,79 @@
+[
+  {
+    name: 'mongo-1:27017',
+    state: 'PRIMARY',
+    health: 1,
+    syncSource: ''
+  },
+  {
+    name: 'mongo-2:27017',
+    state: 'SECONDARY',
+    health: 1,
+    syncSource: 'mongo-1:27017'
+  },
+  {
+    name: 'mongo-3:27017',
+    state: 'SECONDARY',
+    health: 1,
+    syncSource: 'mongo-1:27017'
+  }
+]
+{
+  term: Long('1')
+}
+{
+  chainingAllowed: true,
+  heartbeatIntervalMillis: 2000,
+  heartbeatTimeoutSecs: 10,
+  electionTimeoutMillis: 10000,
+  catchUpTimeoutMillis: -1,
+  catchUpTakeoverDelayMillis: 30000,
+  getLastErrorModes: {},
+  getLastErrorDefaults: {
+    w: 1,
+    wtimeout: 0
+  },
+  replicaSetId: ObjectId('6ada70c7aa8c2d329a3ddad6')
+}
+[
+  {
+    host: 'mongo-1:27017',
+    votes: 1,
+    priority: 1
+  },
+  {
+    host: 'mongo-2:27017',
+    votes: 1,
+    priority: 1
+  },
+  {
+    host: 'mongo-3:27017',
+    votes: 1,
+    priority: 1
+  }
+]
+== rs.conf().members[0] completo (campos que completó MongoDB) ==
+{
+  _id: 0,
+  host: 'mongo-1:27017',
+  arbiterOnly: false,
+  buildIndexes: true,
+  hidden: false,
+  priority: 1,
+  tags: {},
+  secondaryDelaySecs: Long('0'),
+  votes: 1
+}
+== db.hello() ==
+{
+  setName: 'rs-lab3',
+  isWritablePrimary: true,
+  secondary: false,
+  primary: 'mongo-1:27017',
+  me: 'mongo-1:27017',
+  hosts: [
+    'mongo-1:27017',
+    'mongo-2:27017',
+    'mongo-3:27017'
+  ]
+}
