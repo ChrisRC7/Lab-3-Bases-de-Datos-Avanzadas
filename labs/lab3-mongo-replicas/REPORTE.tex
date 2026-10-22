@@ -1,0 +1,216 @@
+\documentclass[10pt,letterpaper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish,es-noquoting,es-noshorthands]{babel}
+\usepackage{lmodern}
+\usepackage[margin=1.9cm,top=1.5cm,bottom=1.6cm]{geometry}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{fancyvrb}
+\usepackage{tikz}
+
+\definecolor{acc}{HTML}{1F4E79}
+\definecolor{gris}{HTML}{5B6672}
+
+\setlength{\parskip}{2pt}
+\setlength{\topsep}{2pt}
+\setlength{\partopsep}{0pt}
+\setlength{\parindent}{0pt}
+\renewcommand{\arraystretch}{1.05}
+\setlength{\emergencystretch}{2em}
+
+% Secciones y pie de pagina sin paquetes externos: solo LaTeX base.
+\makeatletter
+\renewcommand\section{\@startsection{section}{1}{\z@}%
+  {7pt \@plus 2pt \@minus 1pt}{3pt}%
+  {\normalfont\normalsize\bfseries\color{acc}}}
+\renewcommand\subsection{\@startsection{subsection}{2}{\z@}%
+  {5pt \@plus 1pt}{2pt}%
+  {\normalfont\small\bfseries\color{acc}}}
+\renewcommand\@seccntformat[1]{\csname the#1\endcsname.\quad}
+\renewcommand{\ps@plain}{%
+  \renewcommand{\@oddhead}{}\renewcommand{\@evenhead}{}%
+  \renewcommand{\@oddfoot}{\footnotesize\color{gris}%
+    TI-4601 $\cdot$ Laboratorio 3 $\cdot$ Conjuntos de réplicas en MongoDB
+    \hfill \thepage}%
+  \renewcommand{\@evenfoot}{\@oddfoot}}
+\makeatother
+\pagestyle{plain}
+
+\fvset{fontsize=\footnotesize,frame=leftline,framerule=0.6pt,rulecolor=\color{gris},xleftmargin=6pt}
+
+\begin{document}
+
+{\LARGE\bfseries\color{acc} Laboratorio 3 --- Conjuntos de réplicas en MongoDB}\\[2pt]
+{\footnotesize\color{gris} TI-4601 Bases de Datos Avanzadas $\cdot$ Grupo 3 $\cdot$ Fabricio Mena $\cdot$ Christopher Rodriguez $\cdot$ Alisson Redondo}
+
+\vspace{4pt}\hrule\vspace{6pt}
+
+\section{Configuración del conjunto (pasos 0 a 3)}
+
+\textbf{Máquina de los pasos 0 a 6.} Laptop AMD Ryzen 7 5700U, 16 GB de RAM (4 CPU y 9,7 GiB para WSL 2),
+Windows 11 Home con Ubuntu 24.04 en WSL 2, Docker Desktop 29.5.2 y MongoDB 8.0.34. Registro con hora y
+\texttt{OK} de cada paso en \texttt{evidence/comandos.md}.
+
+\textbf{Paso 1: Compose.} Los tres nodos arrancan con el mismo comando:
+\begin{Verbatim}
+mongod --replSet rs-lab3 --bind_ip_all --wiredTigerCacheSizeGB 0.25
+\end{Verbatim}
+
+\begin{center}\footnotesize
+\begin{tabular}{@{}lllll@{}}
+\toprule
+\textbf{Servicio} & \textbf{\texttt{-{}-replSet}} & \textbf{\texttt{hostname}} & \textbf{Volumen} & \textbf{¿Publica puertos?} \\
+\midrule
+\texttt{mongo-1} & \texttt{rs-lab3} & \texttt{mongo-1} & \texttt{mongo1} & no \\
+\texttt{mongo-2} & \texttt{rs-lab3} & \texttt{mongo-2} & \texttt{mongo2} & no \\
+\texttt{mongo-3} & \texttt{rs-lab3} & \texttt{mongo-3} & \texttt{mongo3} & no \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Tras \texttt{make lab3-up} los tres contenedores quedaron \texttt{healthy} y \texttt{make lab3-status}
+respondió \texttt{NotYetInitialized} (\texttt{cluster-start.txt}).
+\texttt{-{}-replSet} solo dice a qué conjunto puede pertenecer cada proceso; quiénes son los miembros y
+quién vota se define con \texttt{rs.initiate()}, y hasta entonces no hay conjunto. Por eso el \texttt{\_id}
+de la configuración tiene que ser \texttt{rs-lab3}: \texttt{mongod} rechaza una configuración con otro
+nombre. Los miembros se nombran \texttt{mongo-1:27017} y no \texttt{localhost:27017} porque la
+configuración se copia a los tres nodos y cada uno la usa para llegar a los otros: dentro de un contenedor
+\texttt{localhost} es él mismo, y los nombres \texttt{mongo-N} los resuelve el DNS de la red de Compose.
+Si se borran los volúmenes se pierden los datos y también la configuración del conjunto, que cada nodo
+guarda en su base \texttt{local}; habría que repetir desde el paso 1.
+
+\textbf{Paso 2: \texttt{rs.initiate()}.}
+
+\begin{center}
+\begin{tikzpicture}[nodo/.style={draw,rounded corners=2pt,minimum width=2.7cm,minimum height=0.85cm,align=center,font=\footnotesize},>=stealth]
+\node[nodo,fill=acc!12] (m1) at (0,0) {\textbf{mongo-1:27017}\\PRIMARY};
+\node[nodo] (m2) at (-3.2,-1.5) {\textbf{mongo-2:27017}\\SECONDARY};
+\node[nodo] (m3) at (3.2,-1.5) {\textbf{mongo-3:27017}\\SECONDARY};
+\node[nodo,fill=gris!10] (app) at (-6.2,0) {\textbf{app-mongo}\\pymongo};
+\draw[->,thick] (m1) -- node[above left,font=\scriptsize]{oplog} (m2);
+\draw[->,thick] (m1) -- node[above right,font=\scriptsize]{oplog} (m3);
+\draw[<->,dashed,gris] (m2) -- node[below,font=\scriptsize]{latidos cada 2 s entre los tres} (m3);
+\draw[->] (app) -- node[above,font=\scriptsize]{escrituras} (m1);
+\end{tikzpicture}
+\end{center}
+
+\vspace{-2pt}
+\begin{Verbatim}
+rs.initiate({
+  _id: "rs-lab3",
+  members: [
+    { _id: 0, host: "mongo-1:27017" },
+    { _id: 1, host: "mongo-2:27017" },
+    { _id: 2, host: "mongo-3:27017" }
+  ]
+})
+\end{Verbatim}
+
+\texttt{\_id: "rs-lab3"} es el nombre del conjunto y debe ser igual al \texttt{-{}-replSet}.
+\texttt{members} es la lista de miembros: en cada uno, \texttt{\_id} es su número dentro del conjunto (0, 1
+y 2) y \texttt{host} es el nombre y puerto con el que los demás lo alcanzan. Respondió \texttt{\{ ok: 1 \}}
+y en unos segundos quedaron \texttt{mongo-1} como \texttt{PRIMARY} y \texttt{mongo-2} y \texttt{mongo-3}
+como \texttt{SECONDARY}.
+
+Se usa un número impar de votantes porque la mayoría es $\lfloor n/2 \rfloor + 1$: con 3 votantes es 2
+y se tolera una caída; con 4 la mayoría es 3 y se sigue tolerando solo una, así que el cuarto nodo no
+agrega tolerancia y en una partición de 2 contra 2 nadie tendría mayoría. MongoDB completó solo los campos
+\texttt{arbiterOnly: false}, \texttt{buildIndexes: true}, \texttt{hidden: false}, \texttt{priority: 1},
+\texttt{tags: \{\}}, \texttt{secondaryDelaySecs: 0} y \texttt{votes: 1} de cada miembro, y los
+\texttt{settings} del conjunto (\texttt{rs-inspect.txt}). Con \texttt{localhost} cada nodo intentaría
+conectarse a sí mismo en vez de a los otros, y el conjunto no se formaría.
+
+\textbf{Paso 3: lectura de \texttt{rs.status()} y \texttt{rs.conf()}} (\texttt{rs-inspect.txt}).
+El primario es \texttt{mongo-1}, y \texttt{mongo-2} y \texttt{mongo-3} copian de él
+(\texttt{syncSourceHost: mongo-1:27017}). El \texttt{term} es 1, porque en un conjunto nuevo solo hubo
+una elección. Los tres tienen \texttt{votes: 1} y \texttt{priority: 1}. En \texttt{settings},
+\texttt{heartbeatIntervalMillis} es 2\,000 y \texttt{electionTimeoutMillis} es 10\,000: cada nodo manda un
+latido cada 2 s, y si un secundario pasa 10 s sin saber del primario (unos cinco latidos perdidos) pide
+votos. \texttt{db.hello()} en \texttt{mongo-1} da \texttt{setName: rs-lab3},
+\texttt{isWritablePrimary: true} y \texttt{secondary: false}.
+
+Entre que el primario cae y un secundario pide votos pasan como máximo unos 10 s, lo que fija
+\texttt{electionTimeoutMillis}. El \texttt{term} equivale al término de Raft del Lab 1: sube en cada
+elección, y un primario que ve un \texttt{term} mayor deja de serlo. \texttt{priority} decide entre
+candidatos que están al día: gana preferencia el de mayor prioridad, y uno con \texttt{priority: 0} nunca
+será primario. Aquí los tres tienen 1, así que cualquiera puede ganar.
+
+\section{Datos, carga e índices (pasos 4 y 5)}
+
+\textbf{Predicción} (\texttt{evidence/predicciones.md}, escrita antes de correr): cada documento quedaría
+en los 3 nodos, y 2 (el primario y un secundario) deberían tenerlo antes de que \texttt{insert\_many}
+responda, porque la conexión usa \texttt{w: "majority"} y la mayoría de 3 es 2. Se cumplió:
+\texttt{generar\_datos.py} produjo 400 eventos, 1\,189 zonas y 162\,810 de capacidad, con SHA-256
+\texttt{9fc6a2db\ldots 774a} (\texttt{datos-manifest.txt}); \texttt{cargar.py} dio sus cinco líneas
+\texttt{OK:} y \texttt{make lab3-check} terminó en \texttt{6/6}, con diferencia máxima de \emph{optime}
+entre miembros de 0,0 s (\texttt{config-check.txt}).
+
+\textbf{TODO 1.} \texttt{cargar\_eventos} lee el JSONL línea por línea, junta lotes de 500 y los inserta
+con \texttt{insert\_many(..., ordered=False)}, conservando el \texttt{\_id} de cada evento. Con
+\texttt{ordered=False}, si un documento falla (por ejemplo, un \texttt{\_id} repetido) el servidor sigue
+con el resto del lote y reporta los errores al final; con \texttt{ordered=True} se detendría en el primero y
+dejaría el lote a medias. Cada \texttt{insert\_many} espera a que 2 de los 3 nodos tengan el lote; con 400
+eventos fue una sola llamada.
+
+\textbf{TODO 2.} Los índices son \texttt{\{categoria: 1, fecha: 1\}} en \texttt{eventos} y
+\texttt{\{evento\_id: 1, estado: 1\}} en \texttt{ordenes}: primero el campo de igualdad y después el de
+rango u orden. Con \texttt{categoria} primero, los eventos de una categoría quedan juntos en el índice y
+ya ordenados por \texttt{fecha}, así que el rango \texttt{fecha >= d} es un solo tramo y el
+\texttt{sort} sale del índice sin ordenar en memoria.
+
+\begin{center}\footnotesize
+\begin{tabular}{@{}lll@{}}
+\toprule
+\texttt{categoria: "concierto", fecha >= "2026-12-01"}, orden por fecha & \textbf{Con índice} & \textbf{Sin índice} (\texttt{hint \$natural}) \\
+\midrule
+Etapas del plan & \texttt{IXSCAN} \texttt{categoria\_1\_fecha\_1} $\to$ \texttt{FETCH} & \texttt{COLLSCAN} $\to$ \texttt{SORT} \\
+\texttt{totalKeysExamined} & 67 & 0 \\
+\texttt{totalDocsExamined} & 67 & 400 \\
+\texttt{nReturned} & 67 & 67 \\
+\texttt{executionTimeMillis} & 1 & 1 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Las dos dan los mismos 67 eventos (\texttt{explain-indices.txt}). Con el índice se examinaron solo esos
+67 documentos y no hubo etapa \texttt{SORT}; sin índice se recorrieron los 400 y hubo que ordenar en
+memoria. El tiempo empata en 1 ms porque 400 documentos son pocos, pero los documentos examinados sin
+índice crecen con la colección y con el índice crecen solo con el resultado.
+
+\section{Replicación observada (pasos 6 y 7)}
+
+\textbf{Paso 6: oplog} (\texttt{oplog.txt}). La orden \texttt{ORD-MANUAL-1} insertada en el primario
+aparece en \texttt{local.oplog.rs} con \texttt{op: 'i'} (insert), \texttt{ns: 'boleteria.ordenes'}
+(base y colección), \texttt{o} (el documento insertado), \texttt{ts: Timestamp(\{ t: 1792700740, i: 1 \})}
+(segundo y contador dentro de ese segundo, que ordenan las operaciones) y \texttt{t: 1} (el \texttt{term}
+del primario que la escribió). Los dos secundarios estaban a 0 s del primario y \texttt{mongo-2} ya podía
+leer la orden.
+
+El oplog es una colección capada: tiene tamaño fijo (aquí 47\,287 MB configurados) y cuando se llena
+sobrescribe las entradas más viejas, para que la replicación no crezca sin límite. La ventana
+(\texttt{log length start to end}) era de 151 s porque el conjunto era nuevo. Si un secundario se atrasa
+más que la ventana, las entradas que le faltan ya se borraron, no puede ponerse al día con el oplog y
+necesita un \emph{initial sync}, que copia otra vez todos los datos.
+
+Al escribir en \texttt{mongo-2} la respuesta fue \texttt{NotWritablePrimary (code 10107): not primary}:
+solo el primario acepta escrituras y los secundarios solo aplican lo que trae el oplog. El cliente tiene
+que encontrar al primario, y por eso la URI del driver lista los tres miembros.
+
+\textbf{Paso 7: lecturas en secundario.} \textit{Pendiente (Persona B): tabla de lecturas obsoletas y
+CAP/PACELC.}
+
+\section{Atomicidad y costo de las garantías (pasos 8 y 9)}
+
+\textit{Pendiente (Persona B): decisiones de los TODO 3 a 5, versión rota de la compra y tabla de
+latencias con n, calentamiento, máquina y límites de Docker.}
+
+\section{Fallas (pasos 10 a 13)}
+
+\textit{Pendiente (Persona C): fallas A, B y C con precondición, marcas de tiempo, errores, RTO y RPO con
+filas del CSV, mayoría 2/3 y «error $\neq$ no escrito».}
+
+\end{document}
