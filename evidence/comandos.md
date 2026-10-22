@@ -6,3 +6,4 @@
 - 2026-10-22 14:24:00 · Paso 3 · `rs-inspect` · OK
 - 2026-10-22 14:24:17 · Paso 4 · `generar_datos.py` · OK
 - 2026-10-22 14:25:09 · Paso 5 · `cargar.py (5 OK) + lab3-check 6/6 + explain` · OK
+- 2026-10-22 14:25:50 · Paso 6 · `oplog + escritura en secundario rechazada (NotWritablePrimary)` · OK
