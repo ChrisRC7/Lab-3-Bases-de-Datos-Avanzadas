@@ -7,3 +7,9 @@
 - 2026-10-22 14:24:17 · Paso 4 · `generar_datos.py` · OK
 - 2026-10-22 14:25:09 · Paso 5 · `cargar.py (5 OK) + lab3-check 6/6 + explain` · OK
 - 2026-10-22 14:25:50 · Paso 6 · `oplog + escritura en secundario rechazada (NotWritablePrimary)` · OK
+- 2026-10-23 · Paso 7 · `lectura_secundario.py --n 500` · OK.
+  - `w1_secundario`: 499/500 lecturas obsoletas (99,8 %).
+  - `majority_secundario`: 3/500 lecturas obsoletas (0,6 %).
+  - `causal_majority`: 0/500 lecturas obsoletas (0 %).
+  - Entorno: Windows + Docker Desktop + WSL 2, MongoDB 8.0.34.
+  - Evidencias: `lectura-secundario.csv` y `lectura-secundario.txt`.
