@@ -14,7 +14,7 @@
 | Persona | Nombre | Bloque | TODO de código | Informe |
 | ------- | ------ | ------ | -------------- | ------- |
 | **A** | Fabricio Mena | Pasos -1 a 6 (repo, clúster, datos, índices, oplog) | TODO 1 y 2 (`cargar.py`) | Pág. 1–2 (excepto lecturas) + **armar el PDF final** |
-| **B** | _______ | Pasos 7 a 9 (lecturas, compra, write concern) | TODO 3 (`comprar.py`) y TODO 4 (`bench_write_concern.py`) | Lecturas + CAP/PACELC (pág. 2) y pág. 3 completa |
+| **B** | Alisson Redondo | Pasos 7 a 9 (lecturas, compra, write concern) | TODO 3 (`comprar.py`) y TODO 4 (`bench_write_concern.py`) | Lecturas + CAP/PACELC (pág. 2) y pág. 3 completa |
 | **C** | Christopher Rodriguez | Pasos 10 a 13 (RPO y fallas A, B, C) | TODO 5 (`verificar_rpo.py`) | Pág. 4–6 (fallas) |
 
 
@@ -29,7 +29,8 @@
 - [x] Informe pág. 1–2: diagrama, `rs.initiate()`, `rs.status`/`rs.conf`, explain, oplog
       En `labs/lab3-mongo-replicas/REPORTE.tex`; la tabla de lecturas del paso 7 la agrega B.
 - [ ] Unir el PDF + script "FALTA:" + lista de control final
-      Pendiente: necesita la evidencia y las secciones de B (pasos 7 a 9) y C (pasos 10 a 13).
+      `REPORTE.tex` ya une las secciones de B y C (6 páginas) y el script no reporta faltantes.
+      Pendiente: las predicciones de B (paso 7) y C (fallas A, B y C), marcadas en rojo con `\falta{}`.
 
 ### Checklist — Persona B
 
@@ -715,17 +716,19 @@ cd evidence && for f in comandos.md cluster-start.txt rs-inspect.txt datos-manif
 
 ### Lista de control final
 
-- [ ] `config-check.txt` termina en `6/6`
-- [ ] `comprar.txt` termina en `todas las verificaciones pasaron`
-- [ ] `write-concern.csv` tiene 1201 líneas
-- [ ] Cada RTO muestra las filas del CSV
-- [ ] RPO calculado sobre confirmadas, no sobre intentos
+- [x] `config-check.txt` termina en `6/6`
+- [x] `comprar.txt` termina en `todas las verificaciones pasaron`
+- [x] `write-concern.csv` tiene 1201 líneas
+- [x] Cada RTO muestra las filas del CSV
+- [x] RPO calculado sobre confirmadas, no sobre intentos
 - [ ] Predicciones escritas antes de ejecutar
+      Falta la del paso 7 (B) y las de las fallas A, B y C (C); la del paso 4 (A) y la del paso 9 (B) están.
 - [ ] `evidence/comandos.md` con hora y `OK` por paso
-- [ ] Conjunto restaurado (1 PRIMARY, 2 SECONDARY)
-- [ ] Máquina, RAM y SO declarados
-- [ ] Commits de los 3 integrantes, repartidos en el tiempo
-- [ ] `.env.example` sin la licencia en el repo
+      Las líneas de los pasos 7 a 9 tienen la fecha pero no la hora.
+- [x] Conjunto restaurado (1 PRIMARY, 2 SECONDARY)
+- [x] Máquina, RAM y SO declarados
+- [x] Commits de los 3 integrantes, repartidos en el tiempo
+- [x] `.env.example` sin la licencia en el repo
 
 ---
 
