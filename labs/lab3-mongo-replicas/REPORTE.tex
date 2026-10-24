@@ -208,7 +208,12 @@ que encontrar al primario, y por eso la URI del driver lista los tres miembros.
 \textbf{Paso 7: lecturas en secundario} (\texttt{lectura-secundario.csv},
 \texttt{lectura-secundario.txt}). Este paso se ejecutó en una ASUS Vivobook X1504ZA (Intel Core i7-1255U, Windows con Docker Desktop y
 WSL 2, kernel 6.18.54.1, MongoDB 8.0.34), con 500 intentos por modalidad.
-\textbf{Predicción:} \falta{predicción del Paso 7, escrita antes de ejecutar (Persona B)}
+\textbf{Expectativa teórica} (\emph{no se registró una predicción antes de ejecutar; esta se escribió el 24/10, al
+armar el informe, y no es una predicción previa}): con \texttt{w1\_secundario}, casi todas las lecturas obsoletas,
+porque el primario confirma sin esperar a nadie y la lectura llega al secundario antes de que aplique el oplog;
+con \texttt{majority\_secundario}, muchas menos pero no cero, porque al confirmar ya hay un secundario con el
+dato y la lectura puede caer en el otro; con \texttt{causal\_majority}, ninguna, porque la sesión causal hace
+que el secundario espere hasta haber visto la escritura. Los resultados siguieron ese orden:
 
 \begin{center}\footnotesize
 \begin{tabular}{@{}lrrr@{}}
@@ -321,6 +326,10 @@ estimar RPO, sin confundir error del cliente con ausencia de escritura.
 versionado) cambió solo la imagen. Replicación, elecciones, \texttt{w:majority},
 \texttt{electionTimeoutMillis} y el \emph{step down} funcionan igual en 7.0.
 
+\emph{Las expectativas de las tres fallas son de Christopher Rodriguez (\texttt{predicciones.md}). Se escribieron el
+24/10, a partir de la teoría y después de ejecutar las fallas el 23/10, por lo que no son predicciones
+registradas previamente.}
+
 \textbf{TODO 5: cómo se clasifica el RPO.} \texttt{calcular\_rpo} solo usa operaciones entre conjuntos.
 \texttt{presentes} se lee con \texttt{readConcern: "majority"}: solo cuenta lo que tiene una mayoría y,
 por tanto, no se puede revertir en un \emph{rollback}. Autotest: 3/3 \texttt{OK}; línea base
@@ -357,8 +366,9 @@ ese «RTO» depende del operador (\texttt{sleep 20 + 10} del guion), no de Mongo
 
 \subsection{Falla A: cae un secundario}
 
-\textbf{Predicción:} se esperaba un pico de latencia. \falta{resto de la predicción de la Falla A (¿errores?,
-¿cuántos nodos quedan para la mayoría?), escrita antes de ejecutar (Persona C)}
+\textbf{Expectativa teórica:} sin errores, porque quedan 2 de 3 votos (mayoría, pero sin margen); p50 parecida y p99
+algo mayor, porque ahora hay que esperar justo al secundario que queda, y quizá un pico en la escritura en
+curso; RPO 0 y vuelta del nodo como SECONDARY sin \emph{initial sync}.
 
 \textbf{Precondición} (\texttt{falla-a-before.txt}): mongo-1 PRIMARY, mongo-2 y mongo-3 SECONDARY.
 \textbf{Falla:} \texttt{docker stop -{}-timeout 0 ti4601-mongo-2}, señal \texttt{1792817808.142715757}
@@ -373,16 +383,22 @@ despues-falla,14,ok,4.7,1792817808.920558
 Ningún error y ningún cambio apreciable de latencia: p50 de 5,3 ms antes (n = 13) y 4,7 ms después (n = 67);
 p99 de 14,6 y 8,4 ms. Con \texttt{w:majority} el primario necesita su propio \emph{ack} más el de
 \textbf{un} secundario; con mongo-2 caído quedan mongo-1 y mongo-3, 2 de 3 votos: hay mayoría para mantener
-al primario y para confirmar escrituras. El pico esperado no se dio porque la escritura en curso ya esperaba
-el \emph{ack} de mongo-3. Al volver (\texttt{falla-a-recovered.txt}), mongo-2 entra como SECONDARY y retoma
+al primario y para confirmar escrituras. \textbf{Contra la expectativa:} se cumplió que no
+habría errores y que la p50 sería parecida; no subió la p99 (bajó de 14,6 a 8,4 ms) ni hubo pico en la
+escritura en curso (seq 13, 5,2 ms): con los tres nodos en la misma máquina, los dos secundarios responden casi
+al mismo tiempo, así que esperar justo a mongo-3 no cuesta más que esperar al más rápido. Al volver (\texttt{falla-a-recovered.txt}), mongo-2 entra como SECONDARY y retoma
 la replicación desde su último \texttt{optime} leyendo el oplog del primario; no necesita \emph{initial
 sync} porque estuvo fuera unos 15 s, muy por debajo de la ventana del oplog. \texttt{falla-a-rpo.txt}: 80/80
 presentes, \textbf{PERDIDOS 0}.
 
 \subsection{Falla B: cae el primario}
 
-\textbf{Predicción:} \falta{¿cuántos segundos sin primario?, ¿de qué parámetro depende?, ¿qué verá la sonda?,
-escrita antes de ejecutar (Persona C)}
+\textbf{Expectativa teórica:} unos 11 a 13 s sin primario: 10 s de \texttt{electionTimeoutMillis} sin latidos, más
+la votación y el descubrimiento del driver (\textasciitilde 1 s cada uno); con \texttt{electionTimeoutMillis = 5000}, de
+6 a 8 s. Depende sobre todo de \texttt{electionTimeoutMillis}. La sonda vería 3 o 4
+\texttt{ServerSelectionTimeoutError} seguidos, de unos 3 s cada uno, que \texttt{retryWrites} no oculta porque
+reintenta una sola vez, y después una escritura lenta. El \texttt{term} subiría en 1, el viejo primario
+volvería como SECONDARY y el RPO sobre lo confirmado sería 0.
 
 \textbf{Precondición} (\texttt{falla-b-before.txt}): mongo-1 PRIMARY, \texttt{term=1},
 \texttt{electionTimeoutMillis=10000}. \textbf{Falla:} \texttt{docker kill ti4601-mongo-1}, señal
@@ -427,12 +443,20 @@ despues-falla,14,ok,1593.0,1792818101.814277   <- primera confirmada
 Con la señal en \texttt{1792818096.827114}, \textbf{RTO = 4,99 s}, frente a 10,01 s con el valor por
 defecto. El RTO escala casi 1:1 con \texttt{electionTimeoutMillis}, que es el término dominante; bajarlo
 acorta el corte a cambio de más elecciones innecesarias si la red tiene picos de latencia. RPO 0, 1 error no
-escrito.
+escrito. \textbf{Contra la expectativa:} los dos RTO quedaron por debajo de lo estimado (10,01 s frente a 11--13 s y
+4,99 s frente a 6--8 s): la votación y el descubrimiento del driver tardaron menos de lo supuesto, y
+\texttt{electionTimeoutMillis} explica casi todo el corte. Los errores, el cambio de \texttt{term} y el RPO 0
+coincidieron.
 
 \subsection{Falla C: dos secundarios caídos, primario vivo (sin mayoría)}
 
-\textbf{Predicción:} \falta{¿habrá primario?, ¿qué pasa con cada insert \texttt{w:majority}?, comparación con la
-Falla B del Lab 1, escrita antes de ejecutar (Persona C)}
+\textbf{Expectativa teórica:} no habría primario: el sobreviviente ve 1 de 3 votos y hace \emph{step down} pasado
+\texttt{electionTimeoutMillis}. Cada insert \texttt{w:majority} pasaría por dos fases: mientras el nodo sigue siendo
+primario, se aplica localmente y devuelve \texttt{WTimeoutError} a los 2 s, con resultado desconocido; después del
+\emph{step down}, \texttt{ServerSelectionTimeoutError} cada \textasciitilde 3 s sin escribir nada. No habría escrituras
+confirmadas hasta que vuelvan los nodos, y al volver aparecerían errores que sí se escribieron. Frente a la Falla
+B del Lab 1, los dos priorizan la consistencia (CP); en Raft el líder no aplica la escritura hasta tener quórum,
+mientras que MongoDB la aplica primero y espera la mayoría después.
 
 \textbf{Precondición} (\texttt{falla-c-before.txt}): mongo-3 PRIMARY, mongo-1 y mongo-2 SECONDARY; sonda con
 \texttt{-{}-w majority -{}-wtimeout-ms 2000}. \textbf{Falla:} \texttt{docker kill ti4601-mongo-1
@@ -484,7 +508,8 @@ con timeout; en MongoDB el primario aplica localmente y devuelve \texttt{WTimeou
 escrituras «huérfanas» que luego se replican (o se revierten con \emph{rollback} si otro nodo se hubiera
 elegido). Para el cliente, los dos casos son ambiguos. \textbf{Recuperación}
 (\texttt{falla-c-recovered.txt}): al reiniciar mongo-1 y mongo-2 vuelve la mayoría, mongo-3 gana la elección
-y queda 1 PRIMARY + 2 SECONDARY.
+y queda 1 PRIMARY + 2 SECONDARY. \textbf{Contra la expectativa:} todo coincidió: no hubo primario, hubo dos fases de
+error, 4 errores que sí se escribieron y ninguna escritura confirmada sin mayoría.
 
 \subsection{Mayoría 2 de 3}
 
