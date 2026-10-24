@@ -15,16 +15,23 @@ Fabricio Mena · 22/10/2026, 14:24 · antes de correr `generar_datos.py` y `carg
 
 ## Paso 7: lecturas en secundario
 
-*Pendiente (Persona B).*
+*No se registró una predicción antes de ejecutar. La expectativa teórica, escrita el 24/10 al armar
+el informe, está en la sección 3 de `labs/lab3-mongo-replicas/REPORTE.tex`.*
 
 ## Paso 9: costo del write concern
 
-*Pendiente (Persona B).*
+Alisson Redondo · 23/10/2026 · anotada en `evidence/comandos.md` («Paso 9 · Predicción previa al
+benchmark») antes de correr `bench_write_concern.py`: `w1` la más rápida, `w1_journal` más lenta que
+`w1`, `majority` entre 1,5 y 3 veces `w1` y `w3` quizá la más lenta; diferencias pequeñas porque los tres
+nodos comparten una computadora.
 
 ## Pasos 11 a 13: fallas
 
 Christopher Rodriguez · predicción a partir de la teoría (mayoría 2/3, `electionTimeoutMillis`,
 `w: "majority"`), sin usar los resultados de las corridas
+
+*Nota: se escribió el 24/10/2026 (commit `58f986f`), después de correr las fallas el 23/10; no es una
+predicción registrada previamente.*
 
 ### Paso 11 · Falla A: cae un secundario
 
