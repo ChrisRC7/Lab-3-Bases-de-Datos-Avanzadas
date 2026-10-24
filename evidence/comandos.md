@@ -19,3 +19,19 @@
   - Se comprobó una condición de carrera por lectura y escritura separadas.
   - Se restauró la implementación atómica y pasó las 6 verificaciones.
   - Evidencias: `comprar.txt` y `comprar-roto.txt`.
+- 2026-10-23 · Paso 9 · Predicción previa al benchmark:
+  - Se espera que `w1` tenga la menor latencia.
+  - `w1_journal` podría ser más lento que `w1` por la confirmación del journal.
+  - `majority` debería tener mayor latencia que `w1`, porque espera replicación.
+  - `w3` podría ser la variante más lenta al esperar a los tres miembros.
+  - Se estima que `majority` podría tardar aproximadamente entre 1,5 y 3 veces lo que tarda `w1`.
+  - Las diferencias podrían ser pequeñas porque los tres nodos MongoDB comparten una computadora.
+- 2026-10-23 · Paso 9 · `bench_write_concern.py --n 300` · OK.
+  - Calentamiento: 30 operaciones por variante.
+  - Muestras: 300 por variante, 1200 en total.
+  - `w1`: p50 = 1,13 ms; 859 ops/s.
+  - `w1_journal`: p50 = 2,26 ms; 402 ops/s.
+  - `majority`: p50 = 3,67 ms; 273 ops/s.
+  - `w3`: p50 = 2,57 ms; 382 ops/s.
+  - CSV verificado: 1201 líneas.
+  - Evidencias: `write-concern.txt` y `write-concern.csv`.
