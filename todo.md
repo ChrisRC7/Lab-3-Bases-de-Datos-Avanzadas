@@ -39,12 +39,12 @@
 
 ### Checklist — Persona C
 
-- [ ] Pasos 0–5 en su máquina (clúster propio, sin subir evidencia de esos pasos)
-- [ ] Paso 10 · **TODO 5** RPO + línea base → `rpo-baseline.{csv,txt}` · 💾 commit
-- [ ] Paso 11 · Falla A (secundario) → `falla-a*` · 💾 commit
-- [ ] Paso 12 · Falla B (primario) → `falla-b*` (+ opcional `falla-b5.*`) · 💾 commit
-- [ ] Paso 13 · Falla C (sin mayoría) → `falla-c*` · 💾 commit
-- [ ] Informe pág. 4–6: RTO/RPO con filas del CSV, mayoría 2/3, "error ≠ no escrito"
+- [x] Pasos 0–5 en su máquina (clúster propio, sin subir evidencia de esos pasos)
+- [x] Paso 10 · **TODO 5** RPO + línea base → `rpo-baseline.{csv,txt}` · 💾 commit
+- [x] Paso 11 · Falla A (secundario) → `falla-a*` · 💾 commit
+- [x] Paso 12 · Falla B (primario) → `falla-b*` (+ opcional `falla-b5.*`) · 💾 commit
+- [x] Paso 13 · Falla C (sin mayoría) → `falla-c*` · 💾 commit
+- [x] Informe pág. 4–6: RTO/RPO con filas del CSV, mayoría 2/3, "error ≠ no escrito"
 
 ---
 
