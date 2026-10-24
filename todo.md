@@ -37,7 +37,7 @@
 - [x] Paso 7 · Lecturas en secundario → `lectura-secundario.{txt,csv}` · 💾 commit
 - [x] Paso 8 · **TODO 3** compra atómica → `comprar.txt` + `comprar-roto.txt` · 💾 commit
 - [x] Paso 9 · **TODO 4** write concern → `write-concern.{txt,csv}` (1201 líneas) · 💾 commit
-- [ ] Informe: tabla de lecturas + CAP/PACELC; pág. 3 (decisiones TODO 1–5, versión rota, latencias + máquina)
+- [x] Informe: tabla de lecturas + CAP/PACELC; pág. 3 (decisiones TODO 1–5, versión rota, latencias + máquina)
 
 ### Checklist — Persona C
 

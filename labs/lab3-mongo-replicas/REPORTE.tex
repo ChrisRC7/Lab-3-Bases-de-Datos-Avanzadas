@@ -200,13 +200,111 @@ Al escribir en \texttt{mongo-2} la respuesta fue \texttt{NotWritablePrimary (cod
 solo el primario acepta escrituras y los secundarios solo aplican lo que trae el oplog. El cliente tiene
 que encontrar al primario, y por eso la URI del driver lista los tres miembros.
 
-\textbf{Paso 7: lecturas en secundario.} \textit{Pendiente (Persona B): tabla de lecturas obsoletas y
-CAP/PACELC.}
+\textbf{Paso 7: lecturas en secundario} (\texttt{lectura-secundario.csv},
+\texttt{lectura-secundario.txt}). Este paso se ejecutó en una ASUS Vivobook X1504ZA, con procesador Intel Core i7-1255U, Windows, Docker Desktop y WSL 2.
+kernel 6.18.54.1, MongoDB 8.0.34), se hicieron 500 intentos por modalidad:
+
+\begin{center}\footnotesize
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{Modalidad} & \textbf{Intentos} & \textbf{Obsoletas} & \textbf{Porcentaje} \\
+\midrule
+\texttt{w1\_secundario} & 500 & 499 & 99,8\,\% \\
+\texttt{majority\_secundario} & 500 & 3 & 0,6\,\% \\
+\texttt{causal\_majority} & 500 & 0 & 0,0\,\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Las lecturas obsoletas fueron 499/500 con \texttt{w:1}, pues el primario no espera
+replicación; 3/500 con \texttt{majority}, ya que un tercer nodo puede seguir
+atrasado aunque dos confirmen; y 0/500 con sesión causal y garantías
+\texttt{majority}, que permite observar escrituras previas de esa sesión.
+Esto no garantiza frescura para lecturas arbitrarias desde un secundario.
+
+\textbf{CAP/PACELC.} Sin quórum, MongoDB no puede confirmar escrituras por
+mayoría: privilegia su consistencia frente a la disponibilidad de esas
+escrituras (CAP). Sin partición, \texttt{w:1} reduce la espera y
+\texttt{majority} exige replicación (PACELC). Para ``mis entradas'' se
+prefiere lectura causal o del primario; ``eventos destacados'' puede tolerar
+secundarios atrasados. Los tres nodos comparten una computadora: estos
+porcentajes no se extrapolan a una red distribuida real.
+
 
 \section{Atomicidad y costo de las garantías (pasos 8 y 9)}
 
-\textit{Pendiente (Persona B): decisiones de los TODO 3 a 5, versión rota de la compra y tabla de
-latencias con n, calentamiento, máquina y límites de Docker.}
+\textbf{Paso 8: compra atómica} (\texttt{comprar.txt} y
+\texttt{comprar-roto.txt}). El \textbf{TODO 3} registra cada orden con
+\texttt{\_id} único y estado \texttt{pendiente}; ante
+\texttt{DuplicateKeyError} devuelve el estado ya guardado y no vuelve a
+descontar. El stock se actualiza con un solo \texttt{update\_one}:
+\texttt{\$elemMatch} exige \emph{en el mismo elemento} del arreglo
+\texttt{zonas} el nombre pedido y \texttt{disponibles >= cantidad};
+\texttt{\$inc} sobre \texttt{zonas.\$.disponibles} efectúa el descuento
+atómico. Dos condiciones independientes, \texttt{zonas.nombre} y
+\texttt{zonas.disponibles}, podrían satisfacerse en zonas distintas
+(p.~ej., General con 0 y VIP con 10), admitiendo una compra inválida.
+
+\begin{center}\footnotesize
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Resultado (200 compradores; 120 entradas)} & \textbf{Correcta} & \textbf{Rota} \\
+\midrule
+Órdenes confirmadas / agotadas & 120 / 80 & 200 / 0 \\
+Entradas General restantes & 0 & 115 \\
+VIP: compras confirmadas de 4 sobre 10 & 2 & 3 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+La versión rota separó \texttt{find\_one} y \texttt{update\_one} con
+\texttt{\$set}: varias solicitudes leyeron el mismo saldo y sobrescribieron
+las actualizaciones de otras (\emph{lost updates}). En cambio, la versión
+atómica pasó las seis verificaciones, incluida la idempotencia (cinco
+reintentos de la misma orden, un solo descuento). La atomicidad cubre
+\emph{un documento}, no toda la compra: si el proceso cae entre descontar
+el evento y marcar la orden \texttt{confirmada}, puede quedar
+\texttt{pendiente} con stock ya reducido. Se detectarían órdenes pendientes
+antiguas para reconciliarlas; no se debe reejecutar ciegamente el descuento.
+
+\textbf{Paso 9: costo de \emph{write concern}} (\texttt{write-concern.csv},
+\texttt{write-concern.txt}). El \textbf{TODO 4} usa
+\texttt{with\_options} y \texttt{WriteConcern} para configurar la garantía; mide cada
+\texttt{insert\_one} con \texttt{perf\_counter}, sin incluir la creación
+del cliente en la latencia. Hubo 30 inserciones de calentamiento y 300
+muestras por variante (1\,200 observaciones; CSV de 1\,201 líneas).
+
+\begin{center}\footnotesize
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Garantía} & \textbf{p50 (ms)} & \textbf{p95 (ms)} & \textbf{p99 (ms)} & \textbf{ops/s} \\
+\midrule
+\texttt{w1} & 1,13 & 1,67 & 2,07 & 859 \\
+\texttt{w1\_journal} & 2,26 & 3,89 & 5,70 & 402 \\
+\texttt{majority} & 3,67 & 4,97 & 6,37 & 273 \\
+\texttt{w3} & 2,57 & 3,10 & 3,39 & 382 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+La predicción previa situaba \texttt{w1} como la más rápida y
+\texttt{majority} en torno a 1,5--3 veces su latencia. La mediana de
+\texttt{majority} resultó 3,25 veces la de \texttt{w1}; exigir journal en
+el primario elevó la mediana a 2,26 ms. Aunque \texttt{w3} fue más rápido
+que \texttt{majority} en esta corrida, no representa una ventaja general:
+son variantes medidas sucesivamente, con efectos de carga, caché y
+sincronización. En tres nodos, \texttt{w3} exige tres confirmaciones y
+\texttt{majority} dos; con latencia entre regiones la espera de réplicas
+puede crecer mucho más. Mediciones realizadas en la máquina
+descrita arriba, bajo contenedores locales (sin latencia de red interregional);
+la memoria disponible para el motor Docker fue de 7,60 GiB, según docker info.
+
+\textbf{Decisiones de los cinco TODO.} En \textbf{TODO 1},
+\texttt{ordered=False} permite continuar el lote tras errores individuales;
+en \textbf{TODO 2}, el índice compuesto ordena igualdad antes de rango;
+\textbf{TODO 3} usa descuento condicionado y atómico;
+\textbf{TODO 4} compara latencias por garantía; \textbf{TODO 5}, clasifica escrituras confirmadas, inciertas y pérdidas para
+estimar RPO, sin confundir error del cliente con ausencia de escritura.
 
 \section{Fallas (pasos 10 a 13)}
 
