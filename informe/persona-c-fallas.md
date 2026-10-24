@@ -74,8 +74,13 @@ despues-falla,15,ok,6.9,1792817809.422984
 **Interpretación.** Ningún error y ningún cambio apreciable de latencia. Con `w:majority`, el
 primario necesita su propio *ack* más el de **un** secundario (2 de 3). Con mongo-2 caído
 quedan mongo-1 + mongo-3 = 2 de 3 votos: hay mayoría para mantener al primario y para
-confirmar escrituras. La predicción era un pico de latencia y no se dio: la escritura en
-curso ya esperaba el *ack* de mongo-3.
+confirmar escrituras.
+
+**Contra la predicción** (`evidence/predicciones.md`): se cumplió que no habría errores y que la
+p50 sería parecida (5,3 → 4,7 ms). No se cumplió que la p99 subiría algo: bajó de 14,6 a 8,4 ms,
+y la escritura en curso al detener el nodo tampoco tuvo pico (seq 13, 5,2 ms). Con tres nodos en
+la misma máquina, los dos secundarios responden casi al mismo tiempo, así que esperar justo a
+mongo-3 no cuesta más que esperar al más rápido de los dos.
 
 **Al volver** (`falla-a-recovered.txt`), mongo-2 entra como SECONDARY: retoma la replicación
 desde su último `optime` leyendo el oplog del primario. No necesita *initial sync* porque
