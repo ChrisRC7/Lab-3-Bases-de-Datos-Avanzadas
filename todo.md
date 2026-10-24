@@ -28,9 +28,8 @@
 - [x] Paso 6 · Oplog → `oplog.txt` · 💾 commit
 - [x] Informe pág. 1–2: diagrama, `rs.initiate()`, `rs.status`/`rs.conf`, explain, oplog
       En `labs/lab3-mongo-replicas/REPORTE.tex`; la tabla de lecturas del paso 7 la agrega B.
-- [ ] Unir el PDF + script "FALTA:" + lista de control final
-      `REPORTE.tex` ya une las secciones de B y C (6 páginas) y el script no reporta faltantes.
-      Pendiente: las predicciones de B (paso 7) y C (fallas A, B y C), marcadas en rojo con `\falta{}`.
+- [x] Unir el PDF + script "FALTA:" + lista de control final
+      `REPORTE.tex` y `REPORTE.pdf` (6 páginas) con las secciones de A, B y C; el script no reporta faltantes.
 
 ### Checklist — Persona B
 
@@ -722,7 +721,8 @@ cd evidence && for f in comandos.md cluster-start.txt rs-inspect.txt datos-manif
 - [x] Cada RTO muestra las filas del CSV
 - [x] RPO calculado sobre confirmadas, no sobre intentos
 - [ ] Predicciones escritas antes de ejecutar
-      Falta la del paso 7 (B) y las de las fallas A, B y C (C); la del paso 4 (A) y la del paso 9 (B) están.
+      Antes de ejecutar: pasos 4 (A) y 9 (B). El paso 7 y las fallas A, B y C tienen la expectativa escrita
+      después (24/10), declarada así en el informe y en `predicciones.md`.
 - [ ] `evidence/comandos.md` con hora y `OK` por paso
       Las líneas de los pasos 7 a 9 tienen la fecha pero no la hora.
 - [x] Conjunto restaurado (1 PRIMARY, 2 SECONDARY)
