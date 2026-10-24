@@ -13,3 +13,9 @@
   - `causal_majority`: 0/500 lecturas obsoletas (0 %).
   - Entorno: Windows + Docker Desktop + WSL 2, MongoDB 8.0.34.
   - Evidencias: `lectura-secundario.csv` y `lectura-secundario.txt`.
+- 2026-10-23 · Paso 8 · `comprar.py` (versión correcta y versión rota) · OK.
+  - Versión correcta: 120 compras confirmadas, 80 agotadas y 0 entradas restantes.
+  - Versión rota: 200 compras confirmadas, 0 agotadas y 115 entradas restantes.
+  - Se comprobó una condición de carrera por lectura y escritura separadas.
+  - Se restauró la implementación atómica y pasó las 6 verificaciones.
+  - Evidencias: `comprar.txt` y `comprar-roto.txt`.

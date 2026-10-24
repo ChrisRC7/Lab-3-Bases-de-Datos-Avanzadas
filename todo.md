@@ -35,7 +35,7 @@
 
 - [x] Pasos 0–5 en su máquina (clúster propio, sin subir evidencia de esos pasos)
 - [x] Paso 7 · Lecturas en secundario → `lectura-secundario.{txt,csv}` · 💾 commit
-- [ ] Paso 8 · **TODO 3** compra atómica → `comprar.txt` + `comprar-roto.txt` · 💾 commit
+- [x] Paso 8 · **TODO 3** compra atómica → `comprar.txt` + `comprar-roto.txt` · 💾 commit
 - [ ] Paso 9 · **TODO 4** write concern → `write-concern.{txt,csv}` (1201 líneas) · 💾 commit
 - [ ] Informe: tabla de lecturas + CAP/PACELC; pág. 3 (decisiones TODO 1–5, versión rota, latencias + máquina)
 
