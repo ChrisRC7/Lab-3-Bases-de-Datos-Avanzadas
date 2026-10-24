@@ -15,7 +15,7 @@
 | ------- | ------ | ------ | -------------- | ------- |
 | **A** | Fabricio Mena | Pasos -1 a 6 (repo, clúster, datos, índices, oplog) | TODO 1 y 2 (`cargar.py`) | Pág. 1–2 (excepto lecturas) + **armar el PDF final** |
 | **B** | _______ | Pasos 7 a 9 (lecturas, compra, write concern) | TODO 3 (`comprar.py`) y TODO 4 (`bench_write_concern.py`) | Lecturas + CAP/PACELC (pág. 2) y pág. 3 completa |
-| **C** | _______ | Pasos 10 a 13 (RPO y fallas A, B, C) | TODO 5 (`verificar_rpo.py`) | Pág. 4–6 (fallas) |
+| **C** | Christopher Rodriguez | Pasos 10 a 13 (RPO y fallas A, B, C) | TODO 5 (`verificar_rpo.py`) | Pág. 4–6 (fallas) |
 
 
 ### Checklist — Persona A
@@ -41,12 +41,12 @@
 
 ### Checklist — Persona C
 
-- [ ] Pasos 0–5 en su máquina (clúster propio, sin subir evidencia de esos pasos)
-- [ ] Paso 10 · **TODO 5** RPO + línea base → `rpo-baseline.{csv,txt}` · 💾 commit
-- [ ] Paso 11 · Falla A (secundario) → `falla-a*` · 💾 commit
-- [ ] Paso 12 · Falla B (primario) → `falla-b*` (+ opcional `falla-b5.*`) · 💾 commit
-- [ ] Paso 13 · Falla C (sin mayoría) → `falla-c*` · 💾 commit
-- [ ] Informe pág. 4–6: RTO/RPO con filas del CSV, mayoría 2/3, "error ≠ no escrito"
+- [x] Pasos 0–5 en su máquina (clúster propio, sin subir evidencia de esos pasos)
+- [x] Paso 10 · **TODO 5** RPO + línea base → `rpo-baseline.{csv,txt}` · 💾 commit
+- [x] Paso 11 · Falla A (secundario) → `falla-a*` · 💾 commit
+- [x] Paso 12 · Falla B (primario) → `falla-b*` (+ opcional `falla-b5.*`) · 💾 commit
+- [x] Paso 13 · Falla C (sin mayoría) → `falla-c*` · 💾 commit
+- [x] Informe pág. 4–6: RTO/RPO con filas del CSV, mayoría 2/3, "error ≠ no escrito"
 
 ---
 
