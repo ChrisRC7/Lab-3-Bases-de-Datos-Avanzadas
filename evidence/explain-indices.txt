@@ -1,0 +1,177 @@
+== CON ÍNDICE (esperado IXSCAN) ==
+{
+  isCached: false,
+  stage: 'FETCH',
+  inputStage: {
+    stage: 'IXSCAN',
+    keyPattern: {
+      categoria: 1,
+      fecha: 1
+    },
+    indexName: 'categoria_1_fecha_1',
+    isMultiKey: false,
+    multiKeyPaths: {
+      categoria: [],
+      fecha: []
+    },
+    isUnique: false,
+    isSparse: false,
+    isPartial: false,
+    indexVersion: 2,
+    direction: 'forward',
+    indexBounds: {
+      categoria: [
+        '["concierto", "concierto"]'
+      ],
+      fecha: [
+        '["2026-12-01", {})'
+      ]
+    }
+  }
+}
+{
+  executionSuccess: true,
+  nReturned: 67,
+  executionTimeMillis: 1,
+  totalKeysExamined: 67,
+  totalDocsExamined: 67,
+  executionStages: {
+    isCached: false,
+    stage: 'FETCH',
+    nReturned: 67,
+    executionTimeMillisEstimate: 0,
+    works: 68,
+    advanced: 67,
+    needTime: 0,
+    needYield: 0,
+    saveState: 0,
+    restoreState: 0,
+    isEOF: 1,
+    docsExamined: 67,
+    alreadyHasObj: 0,
+    inputStage: {
+      stage: 'IXSCAN',
+      nReturned: 67,
+      executionTimeMillisEstimate: 0,
+      works: 68,
+      advanced: 67,
+      needTime: 0,
+      needYield: 0,
+      saveState: 0,
+      restoreState: 0,
+      isEOF: 1,
+      keyPattern: {
+        categoria: 1,
+        fecha: 1
+      },
+      indexName: 'categoria_1_fecha_1',
+      isMultiKey: false,
+      multiKeyPaths: {
+        categoria: [],
+        fecha: []
+      },
+      isUnique: false,
+      isSparse: false,
+      isPartial: false,
+      indexVersion: 2,
+      direction: 'forward',
+      indexBounds: {
+        categoria: [
+          '["concierto", "concierto"]'
+        ],
+        fecha: [
+          '["2026-12-01", {})'
+        ]
+      },
+      keysExamined: 67,
+      seeks: 1,
+      dupsTested: 0,
+      dupsDropped: 0
+    }
+  }
+}
+== SIN ÍNDICE, hint $natural (esperado COLLSCAN) ==
+{
+  isCached: false,
+  stage: 'SORT',
+  sortPattern: {
+    fecha: 1
+  },
+  memLimit: 104857600,
+  type: 'simple',
+  inputStage: {
+    stage: 'COLLSCAN',
+    filter: {
+      '$and': [
+        {
+          categoria: {
+            '$eq': 'concierto'
+          }
+        },
+        {
+          fecha: {
+            '$gte': '2026-12-01'
+          }
+        }
+      ]
+    },
+    direction: 'forward'
+  }
+}
+{
+  executionSuccess: true,
+  nReturned: 67,
+  executionTimeMillis: 1,
+  totalKeysExamined: 0,
+  totalDocsExamined: 400,
+  executionStages: {
+    isCached: false,
+    stage: 'SORT',
+    nReturned: 67,
+    executionTimeMillisEstimate: 0,
+    works: 469,
+    advanced: 67,
+    needTime: 401,
+    needYield: 0,
+    saveState: 0,
+    restoreState: 0,
+    isEOF: 1,
+    sortPattern: {
+      fecha: 1
+    },
+    memLimit: 104857600,
+    type: 'simple',
+    totalDataSizeSorted: 32044,
+    usedDisk: false,
+    spills: 0,
+    spilledDataStorageSize: 0,
+    inputStage: {
+      stage: 'COLLSCAN',
+      filter: {
+        '$and': [
+          {
+            categoria: {
+              '$eq': 'concierto'
+            }
+          },
+          {
+            fecha: {
+              '$gte': '2026-12-01'
+            }
+          }
+        ]
+      },
+      nReturned: 67,
+      executionTimeMillisEstimate: 0,
+      works: 401,
+      advanced: 67,
+      needTime: 333,
+      needYield: 0,
+      saveState: 0,
+      restoreState: 0,
+      isEOF: 1,
+      direction: 'forward',
+      docsExamined: 400
+    }
+  }
+}

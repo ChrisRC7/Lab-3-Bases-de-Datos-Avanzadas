@@ -73,7 +73,50 @@ def comprar_entradas(
     Anote en el informe qué ocurre si el proceso muere entre los pasos 2 y 4, y cómo
     lo detectaría (Paso 8, pregunta 3).
     """
-    raise NotImplementedError("TODO 3: comprar_entradas")
+        # 1. Registrar la orden como pendiente.
+    try:
+        db[ordenes].insert_one({
+            "_id": orden_id,
+            "evento_id": evento_id,
+            "zona": zona,
+            "cantidad": cantidad,
+            "estado": "pendiente",
+            "creada_en": datetime.now(timezone.utc),
+        })
+
+    except DuplicateKeyError:
+        # Si la orden ya existe, no descontamos entradas otra vez.
+        orden_existente = db[ordenes].find_one({"_id": orden_id})
+        return orden_existente["estado"]
+
+    # 2. Descontar las entradas mediante una operación atómica.
+    resultado = db[eventos].update_one(
+        {
+            "_id": evento_id,
+            "zonas": {
+                "$elemMatch": {
+                    "nombre": zona,
+                    "disponibles": {"$gte": cantidad},
+                }
+            },
+        },
+        {
+            "$inc": {
+                "zonas.$.disponibles": -cantidad,
+            }
+        },
+    )
+
+    # 3. Determinar si la compra fue exitosa.
+    estado = "confirmada" if resultado.modified_count == 1 else "agotada"
+
+    # 4. Actualizar el estado definitivo de la orden.
+    db[ordenes].update_one(
+        {"_id": orden_id},
+        {"$set": {"estado": estado}},
+    )
+
+    return estado
 
 
 def preparar(db: Database, entradas: int) -> None:

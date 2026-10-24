@@ -1,0 +1,37 @@
+# Registro de comandos — Laboratorio 3
+
+- 2026-10-22 14:22:25 · Paso 0 · `docker compose version / make build` · OK
+- 2026-10-22 14:23:25 · Paso 1 · `make lab3-up / lab3-status` · OK
+- 2026-10-22 14:23:48 · Paso 2 · `rs.initiate rs-lab3 (mongo-1, mongo-2, mongo-3)` · OK
+- 2026-10-22 14:24:00 · Paso 3 · `rs-inspect` · OK
+- 2026-10-22 14:24:17 · Paso 4 · `generar_datos.py` · OK
+- 2026-10-22 14:25:09 · Paso 5 · `cargar.py (5 OK) + lab3-check 6/6 + explain` · OK
+- 2026-10-22 14:25:50 · Paso 6 · `oplog + escritura en secundario rechazada (NotWritablePrimary)` · OK
+- 2026-10-23 · Paso 7 · `lectura_secundario.py --n 500` · OK.
+  - `w1_secundario`: 499/500 lecturas obsoletas (99,8 %).
+  - `majority_secundario`: 3/500 lecturas obsoletas (0,6 %).
+  - `causal_majority`: 0/500 lecturas obsoletas (0 %).
+  - Entorno: Windows + Docker Desktop + WSL 2, MongoDB 8.0.34.
+  - Evidencias: `lectura-secundario.csv` y `lectura-secundario.txt`.
+- 2026-10-23 · Paso 8 · `comprar.py` (versión correcta y versión rota) · OK.
+  - Versión correcta: 120 compras confirmadas, 80 agotadas y 0 entradas restantes.
+  - Versión rota: 200 compras confirmadas, 0 agotadas y 115 entradas restantes.
+  - Se comprobó una condición de carrera por lectura y escritura separadas.
+  - Se restauró la implementación atómica y pasó las 6 verificaciones.
+  - Evidencias: `comprar.txt` y `comprar-roto.txt`.
+- 2026-10-23 · Paso 9 · Predicción previa al benchmark:
+  - Se espera que `w1` tenga la menor latencia.
+  - `w1_journal` podría ser más lento que `w1` por la confirmación del journal.
+  - `majority` debería tener mayor latencia que `w1`, porque espera replicación.
+  - `w3` podría ser la variante más lenta al esperar a los tres miembros.
+  - Se estima que `majority` podría tardar aproximadamente entre 1,5 y 3 veces lo que tarda `w1`.
+  - Las diferencias podrían ser pequeñas porque los tres nodos MongoDB comparten una computadora.
+- 2026-10-23 · Paso 9 · `bench_write_concern.py --n 300` · OK.
+  - Calentamiento: 30 operaciones por variante.
+  - Muestras: 300 por variante, 1200 en total.
+  - `w1`: p50 = 1,13 ms; 859 ops/s.
+  - `w1_journal`: p50 = 2,26 ms; 402 ops/s.
+  - `majority`: p50 = 3,67 ms; 273 ops/s.
+  - `w3`: p50 = 2,57 ms; 382 ops/s.
+  - CSV verificado: 1201 líneas.
+  - Evidencias: `write-concern.txt` y `write-concern.csv`.
