@@ -40,3 +40,7 @@
 - 2026-10-23 22:59:03 · Paso 12 · `Falla B primario mongo-1` · OK
 - 2026-10-23 23:01:08 · Paso 13 · `Falla C sin mayoría (mongo-1 y mongo-2 caídos)` · OK
 - 2026-10-23 23:02:51 · Paso 12 · `Falla B5 (electionTimeoutMillis=5000) primario mongo-3, restaurado a 10000` · OK
+- 2026-11-01 17:46:55 · Paso 7 · `lectura_secundario --n 500 (repetido en máquina de los pasos 10-13)` · OK
+- 2026-11-01 17:46:58 · Paso 8 · `comprar.py versión rota (lectura y $set), falla como se espera` · OK
+- 2026-11-01 17:47:14 · Paso 8 · `comprar.py versión atómica, 6 OK` · OK
+- 2026-11-01 17:47:55 · Paso 9 · `bench_write_concern --n 300 (1201 líneas)` · OK
