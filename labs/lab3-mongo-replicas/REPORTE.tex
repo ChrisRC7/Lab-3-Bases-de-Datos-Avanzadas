@@ -233,10 +233,14 @@ atrasado aunque dos confirmen; y 0/500 con sesión causal y garantías
 \texttt{majority}, que permite observar escrituras previas de esa sesión.
 Esto no garantiza frescura para lecturas arbitrarias desde un secundario.
 
-\textbf{CAP/PACELC.} Sin quórum, MongoDB no puede confirmar escrituras por
-mayoría: privilegia su consistencia frente a la disponibilidad de esas
-escrituras (CAP). Sin partición, \texttt{w:1} reduce la espera y
-\texttt{majority} exige replicación (PACELC). Para ``mis entradas'' se
+\textbf{CAP/PACELC por modo.} \texttt{w1\_secundario} prioriza disponibilidad
+y baja latencia y sacrifica consistencia: el primario confirma sin quórum y,
+ante una falla, esa escritura puede revertirse. \texttt{majority\_secundario}
+prioriza consistencia en la escritura, que sin quórum no se confirma (CP) y
+sin partición cuesta latencia (PACELC), pero la lectura en un secundario aún
+puede salir obsoleta. \texttt{causal\_majority} prioriza consistencia dentro
+de la sesión: el secundario espera hasta alcanzar la escritura, y sacrifica
+latencia y disponibilidad de la lectura si ese secundario no avanza. Para ``mis entradas'' se
 prefiere lectura causal o del primario; ``eventos destacados'' puede tolerar
 secundarios atrasados. Los tres nodos comparten una computadora: estos
 porcentajes no se extrapolan a una red distribuida real.
@@ -253,8 +257,16 @@ descontar. El stock se actualiza con un solo \texttt{update\_one}:
 \texttt{zonas} el nombre pedido y \texttt{disponibles >= cantidad};
 \texttt{\$inc} sobre \texttt{zonas.\$.disponibles} efectúa el descuento
 atómico. Dos condiciones independientes, \texttt{zonas.nombre} y
-\texttt{zonas.disponibles}, podrían satisfacerse en zonas distintas
-(p.~ej., General con 0 y VIP con 10), admitiendo una compra inválida.
+\texttt{zonas.disponibles}, pueden satisfacerse en zonas distintas. Con
+\texttt{zonas: [\{nombre: "General", disponibles: 0\}, \{nombre: "VIP", disponibles: 10\}]}
+y una compra de 2 en General, las condiciones separadas hacen match (General
+aporta el nombre y VIP las entradas) y el \texttt{\$} no garantiza apuntar a
+General, así que se vende sin stock; con \texttt{\$elemMatch} no hay match y
+la orden queda \texttt{agotada}. Dos \texttt{update\_one} simultáneos al mismo
+documento se serializan: cada uno evalúa su filtro y aplica su cambio sin
+intercalarse con el otro, y no se pierde ningún \texttt{\$inc}. Sobre documentos
+distintos no hay esa garantía: sin transacción, otro cliente puede ver uno
+cambiado y el otro no, y una falla puede dejar solo uno aplicado.
 
 \begin{center}\footnotesize
 \begin{tabular}{@{}lrr@{}}
@@ -277,6 +289,13 @@ reintentos de la misma orden, un solo descuento). La atomicidad cubre
 el evento y marcar la orden \texttt{confirmada}, puede quedar
 \texttt{pendiente} con stock ya reducido. Se detectarían órdenes pendientes
 antiguas para reconciliarlas; no se debe reejecutar ciegamente el descuento.
+Con la zona sin compras en curso, se compara \texttt{capacidad} $-$
+\texttt{disponibles} con la suma de órdenes confirmadas: si la diferencia
+incluye a la pendiente, ya descontó y se marca \texttt{confirmada}; si no, se
+marca \texttt{agotada}. La garantía del descuento es \textbf{como máximo una
+vez}: reintentar con el mismo \texttt{orden\_id} no descuenta de nuevo, pero
+sin reconciliación la orden puede quedar a medias, así que no es «exactamente
+una vez».
 
 \textbf{Paso 9: costo de \emph{write concern}} (\texttt{write-concern.csv},
 \texttt{write-concern.txt}). El \textbf{TODO 4} usa
@@ -298,17 +317,25 @@ muestras por variante (1\,200 observaciones; CSV de 1\,201 líneas).
 \end{tabular}
 \end{center}
 
-La predicción previa situaba \texttt{w1} como la más rápida y
-\texttt{majority} en torno a 1,5--3 veces su latencia. La mediana de
-\texttt{majority} resultó 3,25 veces la de \texttt{w1}; exigir journal en
-el primario elevó la mediana a 2,26 ms. Aunque \texttt{w3} fue más rápido
-que \texttt{majority} en esta corrida, no representa una ventaja general:
-son variantes medidas sucesivamente, con efectos de carga, caché y
-sincronización. En tres nodos, \texttt{w3} exige tres confirmaciones y
-\texttt{majority} dos; con latencia entre regiones la espera de réplicas
-puede crecer mucho más. Mediciones realizadas en la máquina
-descrita arriba, bajo contenedores locales (sin latencia de red interregional);
-la memoria disponible para el motor Docker fue de 7,60 GiB, según docker info.
+La predicción previa ordenaba \texttt{w1}, \texttt{w1\_journal},
+\texttt{majority} y \texttt{w3} (quizá la más lenta), con \texttt{majority} en
+torno a 1,5--3 veces \texttt{w1}. Por p50 se cumplió que \texttt{w1} es la más
+rápida, seguida de \texttt{w1\_journal}; no se cumplió lo demás: la más lenta fue
+\texttt{majority}, 3,25 veces \texttt{w1}, por encima del rango estimado.
+\texttt{w1} espera solo a que el primario aplique la escritura. \texttt{j:true}
+agrega la espera a que quede en el journal en disco, de modo que sobrevive a un
+reinicio del proceso; eso elevó la mediana a 2,26 ms. \texttt{majority} espera
+además a un secundario y \texttt{w3} a los dos. No difieren tanto porque los
+secundarios comparten máquina y aplican casi al mismo tiempo: esperar al segundo
+cuesta poco. Aunque \texttt{w3} fue más rápido que \texttt{majority} en esta
+corrida, no representa una ventaja general: son variantes medidas sucesivamente,
+con efectos de carga, caché y sincronización. Con nodos en regiones distintas,
+\texttt{majority} sumaría a cada escritura el viaje de ida y vuelta al secundario
+más cercano y \texttt{w3} al más lejano, mientras que \texttt{w1} (y
+\texttt{w1\_journal}) no cambiaría, porque no espera a ninguna réplica. Mediciones
+realizadas en la máquina descrita arriba, bajo contenedores locales (sin latencia
+de red interregional); la memoria disponible para el motor Docker fue de 7,60 GiB,
+según docker info. \falta{RAM total de la Vivobook y límite de CPU de Docker (Alisson)}
 
 \textbf{Decisiones de los cinco TODO.} En \textbf{TODO 1},
 \texttt{ordered=False} permite continuar el lote tras errores individuales;
@@ -361,8 +388,10 @@ C, sin mayoría & mongo-1 y 2 & 109 & 95 & 14 & \texttt{WTimeout} $\times$3, \te
 \bottomrule
 \end{tabular}
 \end{center}
-{\footnotesize * En C el primario vuelve cuando se reinician los nodos caídos, no por una elección automática:
-ese «RTO» depende del operador (\texttt{sleep 20 + 10} del guion), no de MongoDB.}
+{\footnotesize * Medido desde la señal, que se escribió tarde (ver Falla C). Entre la última y la primera escritura
+confirmada pasaron \textbf{43,25 s} (1792818002.918506 $-$ 1792817959.666162). En C el primario vuelve cuando se
+reinician los nodos caídos, no por una elección automática: ese «RTO» depende del operador (\texttt{sleep 20 + 10}
+del guion), no de MongoDB.}
 
 \subsection{Falla A: cae un secundario}
 
@@ -479,7 +508,11 @@ se escribió en \texttt{...968.94}. Por los tiempos y el tipo de error, esas fil
 Sin latidos de los otros dos, mongo-3 hace \emph{step down} pasado el \texttt{electionTimeoutMillis}, aunque
 siga vivo. Eso evita el \emph{split-brain}: un primario aislado podría aceptar escrituras que otra mayoría
 nunca vería. No es una elección, es el primario renunciando; y como un solo nodo no gana ninguna elección,
-nadie más asume. \textbf{Dos fases de error:} (1) \texttt{WTimeoutError} y \texttt{WriteConcernError} (seq 14
+nadie más asume. \textbf{Cuánto tardó:} los nodos cayeron entre el seq 13 (\texttt{...959,67}) y el envío del seq
+14 (\texttt{...960,16}); el seq 16 aún recibió \texttt{WTimeoutError} en \texttt{...968,09} y el seq 17 terminó en
+\texttt{...972,67}, tras lo cual solo hay \texttt{ServerSelectionTimeoutError}. El \emph{step down} ocurrió entre
+unos 8 y 13 s después de la caída, compatible con \texttt{electionTimeoutMillis} de 10 s; el CSV no da el instante
+exacto. \textbf{Dos fases de error:} (1) \texttt{WTimeoutError} y \texttt{WriteConcernError} (seq 14
 a 17): mongo-3 todavía era primario, \textbf{aplicó} la escritura localmente y no consiguió el \emph{ack} de
 un segundo nodo dentro de \texttt{wtimeout=2000 ms}; el seq 17 terminó como \texttt{WriteConcernError} cuando
 el primario hizo \emph{step down} con la operación esperando. (2) \texttt{ServerSelectionTimeoutError} (seq
