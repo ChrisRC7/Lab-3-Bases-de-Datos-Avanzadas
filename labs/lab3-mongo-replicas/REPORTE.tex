@@ -1,0 +1,533 @@
+\documentclass[10pt,letterpaper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish,es-noquoting,es-noshorthands]{babel}
+\usepackage{lmodern}
+\usepackage[margin=1.9cm,top=1.5cm,bottom=1.6cm]{geometry}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{fancyvrb}
+\usepackage{tikz}
+
+\definecolor{acc}{HTML}{1F4E79}
+\definecolor{gris}{HTML}{5B6672}
+
+% Marca de algo pendiente (sale en rojo). Antes de entregar no debe quedar ningún uso.
+\newcommand{\falta}[1]{{\color{red}\bfseries [FALTA: #1]}}
+
+\setlength{\parskip}{2pt}
+\setlength{\topsep}{2pt}
+\setlength{\partopsep}{0pt}
+\setlength{\parindent}{0pt}
+\renewcommand{\arraystretch}{1.05}
+\setlength{\emergencystretch}{4em}
+
+% Secciones y pie de pagina sin paquetes externos: solo LaTeX base.
+\makeatletter
+\renewcommand\section{\@startsection{section}{1}{\z@}%
+  {7pt \@plus 2pt \@minus 1pt}{3pt}%
+  {\normalfont\normalsize\bfseries\color{acc}}}
+\renewcommand\subsection{\@startsection{subsection}{2}{\z@}%
+  {5pt \@plus 1pt}{2pt}%
+  {\normalfont\small\bfseries\color{acc}}}
+\renewcommand\@seccntformat[1]{\csname the#1\endcsname.\quad}
+\renewcommand{\ps@plain}{%
+  \renewcommand{\@oddhead}{}\renewcommand{\@evenhead}{}%
+  \renewcommand{\@oddfoot}{\footnotesize\color{gris}%
+    TI-4601 $\cdot$ Laboratorio 3 $\cdot$ Conjuntos de réplicas en MongoDB
+    \hfill \thepage}%
+  \renewcommand{\@evenfoot}{\@oddfoot}}
+\makeatother
+\pagestyle{plain}
+
+\fvset{fontsize=\footnotesize,frame=leftline,framerule=0.6pt,rulecolor=\color{gris},xleftmargin=6pt}
+
+\begin{document}
+
+{\LARGE\bfseries\color{acc} Laboratorio 3 --- Conjuntos de réplicas en MongoDB}\\[2pt]
+{\footnotesize\color{gris} TI-4601 Bases de Datos Avanzadas $\cdot$ Grupo 3 $\cdot$ Fabricio Mena $\cdot$ Christopher Rodriguez $\cdot$ Alisson Redondo}
+
+\vspace{4pt}\hrule\vspace{6pt}
+
+\section{Configuración del conjunto (pasos 0 a 3)}
+
+\textbf{Máquina de los pasos 0 a 6.} Laptop AMD Ryzen 7 5700U, 16 GB de RAM (4 CPU y 9,7 GiB para WSL 2),
+Windows 11 Home con Ubuntu 24.04 en WSL 2, Docker Desktop 29.5.2 y MongoDB 8.0.34. Registro con hora y
+\texttt{OK} de cada paso en \texttt{evidence/comandos.md}.
+
+\textbf{Paso 1: Compose.} Los tres nodos arrancan con el mismo comando:
+\begin{Verbatim}
+mongod --replSet rs-lab3 --bind_ip_all --wiredTigerCacheSizeGB 0.25
+\end{Verbatim}
+
+\begin{center}\footnotesize
+\begin{tabular}{@{}lllll@{}}
+\toprule
+\textbf{Servicio} & \textbf{\texttt{-{}-replSet}} & \textbf{\texttt{hostname}} & \textbf{Volumen} & \textbf{¿Publica puertos?} \\
+\midrule
+\texttt{mongo-1} & \texttt{rs-lab3} & \texttt{mongo-1} & \texttt{mongo1} & no \\
+\texttt{mongo-2} & \texttt{rs-lab3} & \texttt{mongo-2} & \texttt{mongo2} & no \\
+\texttt{mongo-3} & \texttt{rs-lab3} & \texttt{mongo-3} & \texttt{mongo3} & no \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Tras \texttt{make lab3-up} los tres contenedores quedaron \texttt{healthy} y \texttt{make lab3-status}
+respondió \texttt{NotYetInitialized} (\texttt{cluster-start.txt}).
+\texttt{-{}-replSet} solo dice a qué conjunto puede pertenecer cada proceso; quiénes son los miembros y
+quién vota se define con \texttt{rs.initiate()}, y hasta entonces no hay conjunto. Por eso el \texttt{\_id}
+de la configuración tiene que ser \texttt{rs-lab3}: \texttt{mongod} rechaza una configuración con otro
+nombre. Los miembros se nombran \texttt{mongo-1:27017} y no \texttt{localhost:27017} porque la
+configuración se copia a los tres nodos y cada uno la usa para llegar a los otros: dentro de un contenedor
+\texttt{localhost} es él mismo, y los nombres \texttt{mongo-N} los resuelve el DNS de la red de Compose.
+Si se borran los volúmenes se pierden los datos y también la configuración del conjunto, que cada nodo
+guarda en su base \texttt{local}; habría que repetir desde el paso 1.
+
+\textbf{Paso 2: \texttt{rs.initiate()}.}
+
+\begin{center}
+\begin{tikzpicture}[nodo/.style={draw,rounded corners=2pt,minimum width=2.7cm,minimum height=0.85cm,align=center,font=\footnotesize},>=stealth]
+\node[nodo,fill=acc!12] (m1) at (0,0) {\textbf{mongo-1:27017}\\PRIMARY};
+\node[nodo] (m2) at (-3.2,-1.5) {\textbf{mongo-2:27017}\\SECONDARY};
+\node[nodo] (m3) at (3.2,-1.5) {\textbf{mongo-3:27017}\\SECONDARY};
+\node[nodo,fill=gris!10] (app) at (-6.2,0) {\textbf{app-mongo}\\pymongo};
+\draw[->,thick] (m1) -- node[above left,font=\scriptsize]{oplog} (m2);
+\draw[->,thick] (m1) -- node[above right,font=\scriptsize]{oplog} (m3);
+\draw[<->,dashed,gris] (m2) -- node[below,font=\scriptsize]{latidos cada 2 s entre los tres} (m3);
+\draw[->] (app) -- node[above,font=\scriptsize]{escrituras} (m1);
+\end{tikzpicture}
+\end{center}
+
+\vspace{-2pt}
+\begin{Verbatim}
+rs.initiate({
+  _id: "rs-lab3",
+  members: [
+    { _id: 0, host: "mongo-1:27017" },
+    { _id: 1, host: "mongo-2:27017" },
+    { _id: 2, host: "mongo-3:27017" }
+  ]
+})
+\end{Verbatim}
+
+\texttt{\_id: "rs-lab3"} es el nombre del conjunto y debe ser igual al \texttt{-{}-replSet}.
+\texttt{members} es la lista de miembros: en cada uno, \texttt{\_id} es su número dentro del conjunto (0, 1
+y 2) y \texttt{host} es el nombre y puerto con el que los demás lo alcanzan. Respondió \texttt{\{ ok: 1 \}}
+y en unos segundos quedaron \texttt{mongo-1} como \texttt{PRIMARY} y \texttt{mongo-2} y \texttt{mongo-3}
+como \texttt{SECONDARY}.
+
+Se usa un número impar de votantes porque la mayoría es $\lfloor n/2 \rfloor + 1$: con 3 votantes es 2
+y se tolera una caída; con 4 la mayoría es 3 y se sigue tolerando solo una, así que el cuarto nodo no
+agrega tolerancia y en una partición de 2 contra 2 nadie tendría mayoría. MongoDB completó solo los campos
+\texttt{arbiterOnly: false}, \texttt{buildIndexes: true}, \texttt{hidden: false}, \texttt{priority: 1},
+\texttt{tags: \{\}}, \texttt{secondaryDelaySecs: 0} y \texttt{votes: 1} de cada miembro, y los
+\texttt{settings} del conjunto (\texttt{rs-inspect.txt}). Con \texttt{localhost} cada nodo intentaría
+conectarse a sí mismo en vez de a los otros, y el conjunto no se formaría.
+
+\textbf{Paso 3: lectura de \texttt{rs.status()} y \texttt{rs.conf()}} (\texttt{rs-inspect.txt}).
+El primario es \texttt{mongo-1}, y \texttt{mongo-2} y \texttt{mongo-3} copian de él
+(\texttt{syncSourceHost: mongo-1:27017}). El \texttt{term} es 1, porque en un conjunto nuevo solo hubo
+una elección. Los tres tienen \texttt{votes: 1} y \texttt{priority: 1}. En \texttt{settings},
+\texttt{heartbeatIntervalMillis} es 2\,000 y \texttt{electionTimeoutMillis} es 10\,000: cada nodo manda un
+latido cada 2 s, y si un secundario pasa 10 s sin saber del primario (unos cinco latidos perdidos) pide
+votos. \texttt{db.hello()} en \texttt{mongo-1} da \texttt{setName: rs-lab3},
+\texttt{isWritablePrimary: true} y \texttt{secondary: false}.
+
+Entre que el primario cae y un secundario pide votos pasan como máximo unos 10 s: ese plazo es
+\texttt{electionTimeoutMillis}. El \texttt{term} equivale al término de Raft del Lab 1: sube en cada
+elección, y un primario que ve un \texttt{term} mayor deja de serlo. \texttt{priority} decide entre
+candidatos que están al día: gana preferencia el de mayor prioridad, y uno con \texttt{priority: 0} nunca
+será primario. Aquí los tres tienen 1, así que cualquiera puede ganar.
+
+\section{Datos, carga e índices (pasos 4 y 5)}
+
+\textbf{Predicción} (\texttt{evidence/predicciones.md}, escrita antes de correr): cada documento quedaría
+en los 3 nodos, y 2 (el primario y un secundario) deberían tenerlo antes de que \texttt{insert\_many}
+responda, porque la conexión usa \texttt{w: "majority"} y la mayoría de 3 es 2. Se cumplió:
+\texttt{generar\_datos.py} produjo 400 eventos, 1\,189 zonas y 162\,810 de capacidad, con SHA-256
+\texttt{9fc6a2db\ldots 774a} (\texttt{datos-manifest.txt}); \texttt{cargar.py} dio sus cinco líneas
+\texttt{OK:} y \texttt{make lab3-check} terminó en \texttt{6/6}, con diferencia máxima de \emph{optime}
+entre miembros de 0,0 s (\texttt{config-check.txt}).
+
+\textbf{TODO 1.} \texttt{cargar\_eventos} lee el JSONL línea por línea, junta lotes de 500 y los inserta
+con \texttt{insert\_many(..., ordered=False)}, conservando el \texttt{\_id} de cada evento. Con
+\texttt{ordered=False}, si un documento falla (por ejemplo, un \texttt{\_id} repetido) el servidor sigue
+con el resto del lote y reporta los errores al final; con \texttt{ordered=True} se detendría en el primero y
+dejaría el lote a medias. Cada \texttt{insert\_many} espera a que 2 de los 3 nodos tengan el lote; con 400
+eventos fue una sola llamada.
+
+\textbf{TODO 2.} Los índices son \texttt{\{categoria: 1, fecha: 1\}} en \texttt{eventos} y
+\texttt{\{evento\_id: 1, estado: 1\}} en \texttt{ordenes}: primero el campo de igualdad y después el de
+rango u orden. Con \texttt{categoria} primero, los eventos de una categoría quedan juntos en el índice y
+ya ordenados por \texttt{fecha}, así que el rango \texttt{fecha >= d} es un solo tramo y el
+\texttt{sort} sale del índice sin ordenar en memoria.
+
+Consulta: \texttt{categoria: "concierto", fecha >= "2026-12-01"}, ordenada por fecha.
+
+\begin{center}\footnotesize
+\begin{tabular}{@{}lll@{}}
+\toprule
+ & \textbf{Con índice} & \textbf{Sin índice} (\texttt{hint \$natural}) \\
+\midrule
+Etapas del plan & \texttt{IXSCAN} \texttt{categoria\_1\_fecha\_1} $\to$ \texttt{FETCH} & \texttt{COLLSCAN} $\to$ \texttt{SORT} \\
+\texttt{totalKeysExamined} & 67 & 0 \\
+\texttt{totalDocsExamined} & 67 & 400 \\
+\texttt{nReturned} & 67 & 67 \\
+\texttt{executionTimeMillis} & 1 & 1 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Las dos dan los mismos 67 eventos (\texttt{explain-indices.txt}). Con el índice se examinaron solo esos
+67 documentos y no hubo etapa \texttt{SORT}; sin índice se recorrieron los 400 y hubo que ordenar en
+memoria. El tiempo empata en 1 ms porque 400 documentos son pocos, pero los documentos examinados sin
+índice crecen con la colección y con el índice crecen solo con el resultado.
+
+\section{Replicación observada (pasos 6 y 7)}
+
+\textbf{Paso 6: oplog} (\texttt{oplog.txt}). La orden \texttt{ORD-MANUAL-1} insertada en el primario
+aparece en \texttt{local.oplog.rs} con \texttt{op: 'i'} (insert), \texttt{ns: 'boleteria.ordenes'}
+(base y colección), \texttt{o} (el documento insertado), \texttt{ts: Timestamp(\{ t: 1792700740, i: 1 \})}
+(segundo y contador dentro de ese segundo, que ordenan las operaciones) y \texttt{t: 1} (el \texttt{term}
+del primario que la escribió). Los dos secundarios estaban a 0 s del primario y \texttt{mongo-2} ya podía
+leer la orden.
+
+El oplog es una colección capada: tiene tamaño fijo (aquí 47\,287 MB configurados) y cuando se llena
+sobrescribe las entradas más viejas, para que la replicación no crezca sin límite. La ventana
+(\texttt{log length start to end}) era de 151 s porque el conjunto era nuevo. Si un secundario se atrasa
+más que la ventana, las entradas que le faltan ya se borraron, no puede ponerse al día con el oplog y
+necesita un \emph{initial sync}, que copia otra vez todos los datos.
+
+Al escribir en \texttt{mongo-2} la respuesta fue \texttt{NotWritablePrimary (code 10107): not primary}:
+solo el primario acepta escrituras y los secundarios solo aplican lo que trae el oplog. El cliente tiene
+que encontrar al primario, y por eso la URI del driver lista los tres miembros.
+
+\textbf{Paso 7: lecturas en secundario} (\texttt{lectura-secundario.csv},
+\texttt{lectura-secundario.txt}). Este paso se ejecutó en una ASUS Vivobook X1504ZA (Intel Core i7-1255U, Windows con Docker Desktop y
+WSL 2, kernel 6.18.54.1, MongoDB 8.0.34), con 500 intentos por modalidad.
+\textbf{Expectativa teórica} (\emph{no se registró una predicción antes de ejecutar; esta se escribió el 24/10, al
+armar el informe, y no es una predicción previa}): con \texttt{w1\_secundario}, casi todas las lecturas obsoletas,
+porque el primario confirma sin esperar a nadie y la lectura llega al secundario antes de que aplique el oplog;
+con \texttt{majority\_secundario}, muchas menos pero no cero, porque al confirmar ya hay un secundario con el
+dato y la lectura puede caer en el otro; con \texttt{causal\_majority}, ninguna, porque la sesión causal hace
+que el secundario espere hasta haber visto la escritura. Los resultados siguieron ese orden:
+
+\begin{center}\footnotesize
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{Modalidad} & \textbf{Intentos} & \textbf{Obsoletas} & \textbf{Porcentaje} \\
+\midrule
+\texttt{w1\_secundario} & 500 & 499 & 99,8\,\% \\
+\texttt{majority\_secundario} & 500 & 3 & 0,6\,\% \\
+\texttt{causal\_majority} & 500 & 0 & 0,0\,\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Las lecturas obsoletas fueron 499/500 con \texttt{w:1}, pues el primario no espera
+replicación; 3/500 con \texttt{majority}, ya que un tercer nodo puede seguir
+atrasado aunque dos confirmen; y 0/500 con sesión causal y garantías
+\texttt{majority}, que permite observar escrituras previas de esa sesión.
+Esto no garantiza frescura para lecturas arbitrarias desde un secundario.
+
+\textbf{CAP/PACELC.} Sin quórum, MongoDB no puede confirmar escrituras por
+mayoría: privilegia su consistencia frente a la disponibilidad de esas
+escrituras (CAP). Sin partición, \texttt{w:1} reduce la espera y
+\texttt{majority} exige replicación (PACELC). Para ``mis entradas'' se
+prefiere lectura causal o del primario; ``eventos destacados'' puede tolerar
+secundarios atrasados. Los tres nodos comparten una computadora: estos
+porcentajes no se extrapolan a una red distribuida real.
+
+
+\section{Atomicidad y costo de las garantías (pasos 8 y 9)}
+
+\textbf{Paso 8: compra atómica} (\texttt{comprar.txt} y
+\texttt{comprar-roto.txt}). El \textbf{TODO 3} registra cada orden con
+\texttt{\_id} único y estado \texttt{pendiente}; ante
+\texttt{DuplicateKeyError} devuelve el estado ya guardado y no vuelve a
+descontar. El stock se actualiza con un solo \texttt{update\_one}:
+\texttt{\$elemMatch} exige \emph{en el mismo elemento} del arreglo
+\texttt{zonas} el nombre pedido y \texttt{disponibles >= cantidad};
+\texttt{\$inc} sobre \texttt{zonas.\$.disponibles} efectúa el descuento
+atómico. Dos condiciones independientes, \texttt{zonas.nombre} y
+\texttt{zonas.disponibles}, podrían satisfacerse en zonas distintas
+(p.~ej., General con 0 y VIP con 10), admitiendo una compra inválida.
+
+\begin{center}\footnotesize
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Resultado (200 compradores; 120 entradas)} & \textbf{Correcta} & \textbf{Rota} \\
+\midrule
+Órdenes confirmadas / agotadas & 120 / 80 & 200 / 0 \\
+Entradas General restantes & 0 & 115 \\
+VIP: compras confirmadas de 4 sobre 10 & 2 & 3 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+La versión rota separó \texttt{find\_one} y \texttt{update\_one} con
+\texttt{\$set}: varias solicitudes leyeron el mismo saldo y sobrescribieron
+las actualizaciones de otras (\emph{lost updates}). En cambio, la versión
+atómica pasó las seis verificaciones, incluida la idempotencia (cinco
+reintentos de la misma orden, un solo descuento). La atomicidad cubre
+\emph{un documento}, no toda la compra: si el proceso cae entre descontar
+el evento y marcar la orden \texttt{confirmada}, puede quedar
+\texttt{pendiente} con stock ya reducido. Se detectarían órdenes pendientes
+antiguas para reconciliarlas; no se debe reejecutar ciegamente el descuento.
+
+\textbf{Paso 9: costo de \emph{write concern}} (\texttt{write-concern.csv},
+\texttt{write-concern.txt}). El \textbf{TODO 4} usa
+\texttt{with\_options} y \texttt{WriteConcern} para configurar la garantía; mide cada
+\texttt{insert\_one} con \texttt{perf\_counter}, sin incluir la creación
+del cliente en la latencia. Hubo 30 inserciones de calentamiento y 300
+muestras por variante (1\,200 observaciones; CSV de 1\,201 líneas).
+
+\begin{center}\footnotesize
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Garantía} & \textbf{p50 (ms)} & \textbf{p95 (ms)} & \textbf{p99 (ms)} & \textbf{ops/s} \\
+\midrule
+\texttt{w1} & 1,13 & 1,67 & 2,07 & 859 \\
+\texttt{w1\_journal} & 2,26 & 3,89 & 5,70 & 402 \\
+\texttt{majority} & 3,67 & 4,97 & 6,37 & 273 \\
+\texttt{w3} & 2,57 & 3,10 & 3,39 & 382 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+La predicción previa situaba \texttt{w1} como la más rápida y
+\texttt{majority} en torno a 1,5--3 veces su latencia. La mediana de
+\texttt{majority} resultó 3,25 veces la de \texttt{w1}; exigir journal en
+el primario elevó la mediana a 2,26 ms. Aunque \texttt{w3} fue más rápido
+que \texttt{majority} en esta corrida, no representa una ventaja general:
+son variantes medidas sucesivamente, con efectos de carga, caché y
+sincronización. En tres nodos, \texttt{w3} exige tres confirmaciones y
+\texttt{majority} dos; con latencia entre regiones la espera de réplicas
+puede crecer mucho más. Mediciones realizadas en la máquina
+descrita arriba, bajo contenedores locales (sin latencia de red interregional);
+la memoria disponible para el motor Docker fue de 7,60 GiB, según docker info.
+
+\textbf{Decisiones de los cinco TODO.} En \textbf{TODO 1},
+\texttt{ordered=False} permite continuar el lote tras errores individuales;
+en \textbf{TODO 2}, el índice compuesto ordena igualdad antes de rango;
+\textbf{TODO 3} usa descuento condicionado y atómico;
+\textbf{TODO 4} compara latencias por garantía; \textbf{TODO 5}, clasifica escrituras confirmadas, inciertas y pérdidas para
+estimar RPO, sin confundir error del cliente con ausencia de escritura.
+
+\section{Fallas (pasos 10 a 13)}
+
+\textbf{Máquina de los pasos 10 a 13.} Intel Core i7-6500U (4 hilos), 11 GiB de RAM, Ubuntu 24.04.5
+(kernel 7.0), Docker 29.9.2 sin límites de CPU ni RAM y \texttt{-{}-wiredTigerCacheSizeGB 0.25} por nodo.
+\textbf{Se usó MongoDB 7.0.45 y no 8.0:} \texttt{mongo:8.0} no arranca en kernels 6.19 o más nuevos
+(SERVER-121912, TCMalloc y \texttt{rseq}), así que un \texttt{docker-compose.override.yml} local (no
+versionado) cambió solo la imagen. Replicación, elecciones, \texttt{w:majority},
+\texttt{electionTimeoutMillis} y el \emph{step down} funcionan igual en 7.0.
+
+\emph{Las expectativas de las tres fallas son de Christopher Rodriguez (\texttt{predicciones.md}). Se escribieron el
+24/10, a partir de la teoría y después de ejecutar las fallas el 23/10, por lo que no son predicciones
+registradas previamente.}
+
+\textbf{TODO 5: cómo se clasifica el RPO.} \texttt{calcular\_rpo} solo usa operaciones entre conjuntos.
+\texttt{presentes} se lee con \texttt{readConcern: "majority"}: solo cuenta lo que tiene una mayoría y,
+por tanto, no se puede revertir en un \emph{rollback}. Autotest: 3/3 \texttt{OK}; línea base
+(\texttt{rpo-baseline.txt}): 20 intentos, 20 confirmados, 20 presentes, \texttt{PERDIDOS 0}.
+
+\begin{center}\footnotesize
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Clave} & \textbf{Fórmula} & \textbf{Significado} \\
+\midrule
+\texttt{perdidos} & \texttt{confirmados} $-$ \texttt{presentes} & se confirmaron y no están: RPO $>$ 0 \\
+\texttt{desconocidos\_presentes} & \texttt{sin\_confirmar} $\cap$ \texttt{presentes} & dieron error pero \textbf{sí} quedaron escritas \\
+\texttt{desconocidos\_ausentes} & \texttt{sin\_confirmar} $-$ \texttt{presentes} & dieron error y no quedaron \\
+\texttt{inesperados} & \texttt{presentes} $-$ \texttt{confirmados} $-$ \texttt{sin\_confirmar} & nunca se intentaron (error de la prueba) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{center}\footnotesize
+\begin{tabular}{@{}llrrrlrr@{}}
+\toprule
+\textbf{Escenario} & \textbf{Caídos} & \textbf{Intentos} & \textbf{ok} & \textbf{error} & \textbf{Tipos de error} & \textbf{RTO} & \textbf{RPO} \\
+\midrule
+A, secundario & mongo-2 & 80 & 80 & 0 & --- & sin corte & 0 \\
+B, primario & mongo-1 & 104 & 101 & 3 & \texttt{ServerSelectionTimeout} $\times$3 & 10,01 s & 0 \\
+B5, \texttt{electionTimeoutMillis=5000} & mongo-3 & 113 & 112 & 1 & \texttt{ServerSelectionTimeout} $\times$1 & 4,99 s & 0 \\
+C, sin mayoría & mongo-1 y 2 & 109 & 95 & 14 & \texttt{WTimeout} $\times$3, \texttt{WriteConcern} $\times$1, & $\approx$34 s* & 0 \\
+ & & & & & \texttt{ServerSelectionTimeout} $\times$10 & & \\
+\bottomrule
+\end{tabular}
+\end{center}
+{\footnotesize * En C el primario vuelve cuando se reinician los nodos caídos, no por una elección automática:
+ese «RTO» depende del operador (\texttt{sleep 20 + 10} del guion), no de MongoDB.}
+
+\subsection{Falla A: cae un secundario}
+
+\textbf{Expectativa teórica:} sin errores, porque quedan 2 de 3 votos (mayoría, pero sin margen); p50 parecida y p99
+algo mayor, porque ahora hay que esperar justo al secundario que queda, y quizá un pico en la escritura en
+curso; RPO 0 y vuelta del nodo como SECONDARY sin \emph{initial sync}.
+
+\textbf{Precondición} (\texttt{falla-a-before.txt}): mongo-1 PRIMARY, mongo-2 y mongo-3 SECONDARY.
+\textbf{Falla:} \texttt{docker stop -{}-timeout 0 ti4601-mongo-2}, señal \texttt{1792817808.142715757}
+(2026-10-23T22:56:48.14-06:00, \texttt{falla-a-stop.txt}). \textbf{Durante} (\texttt{falla-a-status.txt}):
+mongo-1 PRIMARY, mongo-2 \texttt{not reachable/healthy}, mongo-3 SECONDARY. Filas de \texttt{falla-a.csv}
+(phase, seq, status, latency\_ms, completed\_epoch):
+\begin{Verbatim}
+antes-falla,12,ok,3.9,1792817807.919221
+despues-falla,13,ok,5.2,1792817808.420788   <- 278 ms después de la señal
+despues-falla,14,ok,4.7,1792817808.920558
+\end{Verbatim}
+Ningún error y ningún cambio apreciable de latencia: p50 de 5,3 ms antes (n = 13) y 4,7 ms después (n = 67);
+p99 de 14,6 y 8,4 ms. Con \texttt{w:majority} el primario necesita su propio \emph{ack} más el de
+\textbf{un} secundario; con mongo-2 caído quedan mongo-1 y mongo-3, 2 de 3 votos: hay mayoría para mantener
+al primario y para confirmar escrituras. \textbf{Contra la expectativa:} se cumplió que no
+habría errores y que la p50 sería parecida; no subió la p99 (bajó de 14,6 a 8,4 ms) ni hubo pico en la
+escritura en curso (seq 13, 5,2 ms): con los tres nodos en la misma máquina, los dos secundarios responden casi
+al mismo tiempo, así que esperar justo a mongo-3 no cuesta más que esperar al más rápido. Al volver (\texttt{falla-a-recovered.txt}), mongo-2 entra como SECONDARY y retoma
+la replicación desde su último \texttt{optime} leyendo el oplog del primario; no necesita \emph{initial
+sync} porque estuvo fuera unos 15 s, muy por debajo de la ventana del oplog. \texttt{falla-a-rpo.txt}: 80/80
+presentes, \textbf{PERDIDOS 0}.
+
+\subsection{Falla B: cae el primario}
+
+\textbf{Expectativa teórica:} unos 11 a 13 s sin primario: 10 s de \texttt{electionTimeoutMillis} sin latidos, más
+la votación y el descubrimiento del driver (\textasciitilde 1 s cada uno); con \texttt{electionTimeoutMillis = 5000}, de
+6 a 8 s. Depende sobre todo de \texttt{electionTimeoutMillis}. La sonda vería 3 o 4
+\texttt{ServerSelectionTimeoutError} seguidos, de unos 3 s cada uno, que \texttt{retryWrites} no oculta porque
+reintenta una sola vez, y después una escritura lenta. El \texttt{term} subiría en 1, el viejo primario
+volvería como SECONDARY y el RPO sobre lo confirmado sería 0.
+
+\textbf{Precondición} (\texttt{falla-b-before.txt}): mongo-1 PRIMARY, \texttt{term=1},
+\texttt{electionTimeoutMillis=10000}. \textbf{Falla:} \texttt{docker kill ti4601-mongo-1}, señal
+\texttt{1792817872.249831348} (2026-10-23T22:57:52.27-06:00). \textbf{Durante}
+(\texttt{falla-b-status.txt}, 15 s después): mongo-1 caído, mongo-2 SECONDARY, \textbf{mongo-3 PRIMARY,
+\texttt{term=2}}. Filas de \texttt{falla-b.csv}:
+\begin{Verbatim}
+antes-falla,11,ok,6.7,1792817871.591525      <- última confirmada antes de la falla
+antes-falla,12,error,3009.0,1792817875.095516,ServerSelectionTimeoutError
+despues-falla,13,error,3001.2,1792817878.097063,ServerSelectionTimeoutError
+despues-falla,14,error,3000.9,1792817881.098176,ServerSelectionTimeoutError
+despues-falla,15,ok,1161.6,1792817882.260059 <- primera confirmada tras la señal
+\end{Verbatim}
+\textbf{RTO} = 1792817882.260059 $-$ 1792817872.249831 = \textbf{10,01 s}. El seq 12 figura como
+\texttt{antes-falla} porque la sonda lo envió con el \texttt{kill} en curso: la señal se escribe cuando
+\texttt{docker kill} devuelve, unos cientos de ms después.
+
+\textbf{Por qué el RTO supera \texttt{electionTimeoutMillis}.} Los secundarios dejan de ver los latidos
+del primario (cada 2 s) y esperan \texttt{electionTimeoutMillis} (10 s, con una pequeña variación
+aleatoria) antes de convocar la elección; luego viene la votación, con un \texttt{term} nuevo; después el
+driver descubre al nuevo primario (\texttt{heartbeatFrequencyMS=1000} en la sonda), y por último se
+reintenta la operación pendiente: el seq 15 tardó 1\,161,6 ms porque se emitió durante la elección.
+\textbf{Errores y \texttt{retryWrites}:} el driver reintenta \textbf{una sola vez} y solo si encuentra un
+primario dentro de \texttt{serverSelectionTimeoutMS=3000}; sin primario durante unos 10 s, tres intentos
+seguidos agotaron los 3 s y salieron como \texttt{ServerSelectionTimeoutError}. El reintento oculta fallas
+cortas, no una ventana mayor que ese plazo. \textbf{\texttt{term} y el viejo primario:} el \texttt{term} pasó
+de 1 a 2; al volver, mongo-1 ve un \texttt{term} mayor y entra como SECONDARY
+(\texttt{falla-b-recovered.txt}): todos tienen \texttt{priority} 1, mongo-3 está sano y un nodo con
+\texttt{term} viejo no gana elecciones ni acepta escrituras. \textbf{RPO} (\texttt{falla-b-rpo.txt}): 101
+confirmadas, 101 presentes, \textbf{PERDIDOS 0}; los 3 errores no quedaron escritos. Con
+\texttt{w:majority} cada \texttt{ok} ya estaba en 2 de 3 nodos, y lo tenía al menos uno de los que eligieron
+al nuevo primario.
+
+\textbf{B5, opcional: \texttt{electionTimeoutMillis = 5000}} (\texttt{falla-b5-*}). Precondición: mongo-3
+PRIMARY, \texttt{term=3}; tras \texttt{docker kill ti4601-mongo-3} el nuevo primario es mongo-2, con
+\texttt{term=4}; al final se restauró el valor a 10\,000 (\texttt{falla-b5-recovered.txt}).
+\begin{Verbatim}
+antes-falla,12,ok,4.7,1792818096.629883
+despues-falla,13,error,3095.6,1792818100.221038,ServerSelectionTimeoutError
+despues-falla,14,ok,1593.0,1792818101.814277   <- primera confirmada
+\end{Verbatim}
+Con la señal en \texttt{1792818096.827114}, \textbf{RTO = 4,99 s}, frente a 10,01 s con el valor por
+defecto. El RTO escala casi 1:1 con \texttt{electionTimeoutMillis}, que es el término dominante; bajarlo
+acorta el corte a cambio de más elecciones innecesarias si la red tiene picos de latencia. RPO 0, 1 error no
+escrito. \textbf{Contra la expectativa:} los dos RTO quedaron por debajo de lo estimado (10,01 s frente a 11--13 s y
+4,99 s frente a 6--8 s): la votación y el descubrimiento del driver tardaron menos de lo supuesto, y
+\texttt{electionTimeoutMillis} explica casi todo el corte. Los errores, el cambio de \texttt{term} y el RPO 0
+coincidieron.
+
+\subsection{Falla C: dos secundarios caídos, primario vivo (sin mayoría)}
+
+\textbf{Expectativa teórica:} no habría primario: el sobreviviente ve 1 de 3 votos y hace \emph{step down} pasado
+\texttt{electionTimeoutMillis}. Cada insert \texttt{w:majority} pasaría por dos fases: mientras el nodo sigue siendo
+primario, se aplica localmente y devuelve \texttt{WTimeoutError} a los 2 s, con resultado desconocido; después del
+\emph{step down}, \texttt{ServerSelectionTimeoutError} cada \textasciitilde 3 s sin escribir nada. No habría escrituras
+confirmadas hasta que vuelvan los nodos, y al volver aparecerían errores que sí se escribieron. Frente a la Falla
+B del Lab 1, los dos priorizan la consistencia (CP); en Raft el líder no aplica la escritura hasta tener quórum,
+mientras que MongoDB la aplica primero y espera la mayoría después.
+
+\textbf{Precondición} (\texttt{falla-c-before.txt}): mongo-3 PRIMARY, mongo-1 y mongo-2 SECONDARY; sonda con
+\texttt{-{}-w majority -{}-wtimeout-ms 2000}. \textbf{Falla:} \texttt{docker kill ti4601-mongo-1
+ti4601-mongo-2}, señal \texttt{1792817968.942381} (2026-10-23T22:59:28.94-06:00). \textbf{Durante}
+(\texttt{falla-c-status.txt}, 20 s después): mongo-1 y mongo-2 caídos y \textbf{mongo-3 SECONDARY}: no queda
+primario. Filas de \texttt{falla-c.csv}:
+\begin{Verbatim}
+antes-falla,13,ok,6.6,1792817959.666162                       <- última confirmada
+antes-falla,14,error,2377.4,1792817962.537133,WTimeoutError
+antes-falla,17,error,4583.9,1792817972.672220,WriteConcernError
+despues-falla,18,error,3002.7,1792817975.675176,ServerSelectionTimeoutError
+   ... seq 19 a 27: ServerSelectionTimeoutError, unos 3000 ms cada uno ...
+despues-falla,28,ok,213.2,1792818002.918506                   <- primera confirmada
+\end{Verbatim}
+Los seq 14 a 17 figuran como \texttt{antes-falla} porque \texttt{docker kill} de dos contenedores tardó
+varios segundos en devolver: los nodos ya estaban caídos desde \textasciitilde\texttt{...960}, pero la señal
+se escribió en \texttt{...968.94}. Por los tiempos y el tipo de error, esas filas pertenecen a la falla.
+
+\textbf{Por qué el sobreviviente baja a SECONDARY.} Un primario debe ver a una mayoría de votantes (2 de 3).
+Sin latidos de los otros dos, mongo-3 hace \emph{step down} pasado el \texttt{electionTimeoutMillis}, aunque
+siga vivo. Eso evita el \emph{split-brain}: un primario aislado podría aceptar escrituras que otra mayoría
+nunca vería. No es una elección, es el primario renunciando; y como un solo nodo no gana ninguna elección,
+nadie más asume. \textbf{Dos fases de error:} (1) \texttt{WTimeoutError} y \texttt{WriteConcernError} (seq 14
+a 17): mongo-3 todavía era primario, \textbf{aplicó} la escritura localmente y no consiguió el \emph{ack} de
+un segundo nodo dentro de \texttt{wtimeout=2000 ms}; el seq 17 terminó como \texttt{WriteConcernError} cuando
+el primario hizo \emph{step down} con la operación esperando. (2) \texttt{ServerSelectionTimeoutError} (seq
+18 a 27): ya no hay primario y nada llega al servidor.
+
+\textbf{Error $\neq$ no escrito} (\texttt{falla-c-rpo.txt}):
+\begin{Verbatim}
+intentos 109 · confirmados 95 · con error 14 · presentes 99
+PERDIDOS 0
+errores que SÍ se escribieron ........... 4  [14, 15, 16, 17]
+errores que NO se escribieron ........... 10
+\end{Verbatim}
+Los 4 \texttt{WTimeoutError}/\texttt{WriteConcernError} \textbf{sí están} en la base, leídos con
+\texttt{readConcern: majority}: cuando volvieron mongo-1 y mongo-2 replicaron esas entradas del oplog de
+mongo-3 y quedaron mayoritarias. Los 10 \texttt{ServerSelectionTimeoutError} nunca llegaron a un servidor.
+\textbf{Ninguna escritura se confirmó sin mayoría} y el RPO sobre lo confirmado es 0. \textbf{Efecto en un
+cliente que compra:} si \texttt{comprar\_entradas} recibe un \texttt{WTimeoutError}, concluye «no se compró»
+y reintenta con un \textbf{nuevo} \texttt{orden\_id}, el descuento puede quedar duplicado, porque el primero
+sí se aplicó. Por eso el RPO se mide sobre lo confirmado (lo que dio error tiene resultado desconocido hasta
+consultar la base) y el P2 exige operaciones \textbf{idempotentes}: el reintento usa el \textbf{mismo}
+\texttt{orden\_id} (\texttt{\_id} único, \texttt{DuplicateKeyError}, se devuelve el estado existente).
+
+\textbf{Comparación con la Falla B del Lab 1} (CockroachDB, Raft). En los dos, sin quórum no hay escrituras
+confirmadas (CP en CAP). En Raft el \emph{leaseholder} aislado tampoco confirma y la petición queda colgada o
+con timeout; en MongoDB el primario aplica localmente y devuelve \texttt{WTimeoutError}, lo que deja
+escrituras «huérfanas» que luego se replican (o se revierten con \emph{rollback} si otro nodo se hubiera
+elegido). Para el cliente, los dos casos son ambiguos. \textbf{Recuperación}
+(\texttt{falla-c-recovered.txt}): al reiniciar mongo-1 y mongo-2 vuelve la mayoría, mongo-3 gana la elección
+y queda 1 PRIMARY + 2 SECONDARY. \textbf{Contra la expectativa:} todo coincidió: no hubo primario, hubo dos fases de
+error, 4 errores que sí se escribieron y ninguna escritura confirmada sin mayoría.
+
+\subsection{Mayoría 2 de 3}
+
+\begin{center}\footnotesize
+\begin{tabular}{@{}lrccc@{}}
+\toprule
+\textbf{Escenario} & \textbf{Votos vivos} & \textbf{¿Mayoría ($\geq$ 2)?} & \textbf{¿Primario?} & \textbf{¿Escrituras \texttt{w:majority}?} \\
+\midrule
+Normal & 3 & sí & sí & sí \\
+A (un secundario caído) & 2 & sí & sí, el mismo & sí, sin corte \\
+B (primario caído) & 2 & sí & sí, tras la elección (\textasciitilde 10 s) & sí, después del RTO \\
+C (dos caídos) & 1 & \textbf{no} & \textbf{no} (\emph{step down}) & \textbf{no} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Con 3 nodos se tolera \textbf{una} falla. La continuidad de A y de B se debe a que quedan 2 de 3 votos, que
+siguen siendo mayoría; en C queda 1 y no hay escrituras confirmadas. Un cuarto nodo no aumentaría la
+tolerancia: la mayoría de 4 es 3 y se seguiría tolerando una sola falla. De ahí el número impar de votantes.
+
+\end{document}

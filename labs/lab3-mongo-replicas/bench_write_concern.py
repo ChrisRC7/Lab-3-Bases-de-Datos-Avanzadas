@@ -54,7 +54,36 @@ def medir_escrituras(
     Piense antes de ejecutar: ¿qué variante espera que sea la más lenta y cuál la más
     rápida? ¿Cuánto cree que cambia ``j=True``? Anote su predicción en el informe.
     """
-    raise NotImplementedError("TODO 4: medir_escrituras")
+    
+    # Crear una vista de la colección con la garantía solicitada.
+    vista = coleccion.with_options(
+        write_concern=WriteConcern(
+            w=w,
+            j=j,
+            wtimeout=wtimeout_ms,
+        )
+    )
+
+    latencias: list[float] = []
+
+    # Medir cada inserción individualmente.
+    for i in range(n):
+        documento = {
+            "i": i,
+            "relleno": "x" * 100,
+        }
+
+        inicio = time.perf_counter()
+
+        vista.insert_one(documento)
+
+        fin = time.perf_counter()
+
+        # Convertir segundos a milisegundos.
+        latencia_ms = (fin - inicio) * 1000
+        latencias.append(latencia_ms)
+
+    return latencias
 
 
 def main() -> int:

@@ -13,38 +13,40 @@
 
 | Persona | Nombre | Bloque | TODO de código | Informe |
 | ------- | ------ | ------ | -------------- | ------- |
-| **A** | _______ | Pasos -1 a 6 (repo, clúster, datos, índices, oplog) | TODO 1 y 2 (`cargar.py`) | Pág. 1–2 (excepto lecturas) + **armar el PDF final** |
-| **B** | _______ | Pasos 7 a 9 (lecturas, compra, write concern) | TODO 3 (`comprar.py`) y TODO 4 (`bench_write_concern.py`) | Lecturas + CAP/PACELC (pág. 2) y pág. 3 completa |
-| **C** | _______ | Pasos 10 a 13 (RPO y fallas A, B, C) | TODO 5 (`verificar_rpo.py`) | Pág. 4–6 (fallas) |
+| **A** | Fabricio Mena | Pasos -1 a 6 (repo, clúster, datos, índices, oplog) | TODO 1 y 2 (`cargar.py`) | Pág. 1–2 (excepto lecturas) + **armar el PDF final** |
+| **B** | Alisson Redondo | Pasos 7 a 9 (lecturas, compra, write concern) | TODO 3 (`comprar.py`) y TODO 4 (`bench_write_concern.py`) | Lecturas + CAP/PACELC (pág. 2) y pág. 3 completa |
+| **C** | Christopher Rodriguez | Pasos 10 a 13 (RPO y fallas A, B, C) | TODO 5 (`verificar_rpo.py`) | Pág. 4–6 (fallas) |
 
 
 ### Checklist — Persona A
-- [ ] Paso 0 · Requisitos + `make build` + `evidence/comandos.md`
-- [ ] Paso 1 · Leer Compose y levantar → `cluster-start.txt`
-- [ ] Paso 2 · `rs.initiate()` → 1 PRIMARY + 2 SECONDARY
-- [ ] Paso 3 · Inspeccionar → `rs-inspect.txt`
-- [ ] Paso 4 · Semilla → `datos-manifest.txt`
-- [ ] Paso 5 · **TODO 1 y 2** → `config-check.txt` (6/6), `explain-indices.txt` · 💾 commit
-- [ ] Paso 6 · Oplog → `oplog.txt` · 💾 commit
-- [ ] Informe pág. 1–2: diagrama, `rs.initiate()`, `rs.status`/`rs.conf`, explain, oplog
-- [ ] Unir el PDF + script "FALTA:" + lista de control final
+- [x] Paso 0 · Requisitos + `make build` + `evidence/comandos.md`
+- [x] Paso 1 · Leer Compose y levantar → `cluster-start.txt`
+- [x] Paso 2 · `rs.initiate()` → 1 PRIMARY + 2 SECONDARY
+- [x] Paso 3 · Inspeccionar → `rs-inspect.txt`
+- [x] Paso 4 · Semilla → `datos-manifest.txt`
+- [x] Paso 5 · **TODO 1 y 2** → `config-check.txt` (6/6), `explain-indices.txt` · 💾 commit
+- [x] Paso 6 · Oplog → `oplog.txt` · 💾 commit
+- [x] Informe pág. 1–2: diagrama, `rs.initiate()`, `rs.status`/`rs.conf`, explain, oplog
+      En `labs/lab3-mongo-replicas/REPORTE.tex`; la tabla de lecturas del paso 7 la agrega B.
+- [x] Unir el PDF + script "FALTA:" + lista de control final
+      `REPORTE.tex` y `REPORTE.pdf` (6 páginas) con las secciones de A, B y C; el script no reporta faltantes.
 
 ### Checklist — Persona B
 
-- [ ] Pasos 0–5 en su máquina (clúster propio, sin subir evidencia de esos pasos)
-- [ ] Paso 7 · Lecturas en secundario → `lectura-secundario.{txt,csv}` · 💾 commit
-- [ ] Paso 8 · **TODO 3** compra atómica → `comprar.txt` + `comprar-roto.txt` · 💾 commit
-- [ ] Paso 9 · **TODO 4** write concern → `write-concern.{txt,csv}` (1201 líneas) · 💾 commit
-- [ ] Informe: tabla de lecturas + CAP/PACELC; pág. 3 (decisiones TODO 1–5, versión rota, latencias + máquina)
+- [x] Pasos 0–5 en su máquina (clúster propio, sin subir evidencia de esos pasos)
+- [x] Paso 7 · Lecturas en secundario → `lectura-secundario.{txt,csv}` · 💾 commit
+- [x] Paso 8 · **TODO 3** compra atómica → `comprar.txt` + `comprar-roto.txt` · 💾 commit
+- [x] Paso 9 · **TODO 4** write concern → `write-concern.{txt,csv}` (1201 líneas) · 💾 commit
+- [x] Informe: tabla de lecturas + CAP/PACELC; pág. 3 (decisiones TODO 1–5, versión rota, latencias + máquina)
 
 ### Checklist — Persona C
 
-- [ ] Pasos 0–5 en su máquina (clúster propio, sin subir evidencia de esos pasos)
-- [ ] Paso 10 · **TODO 5** RPO + línea base → `rpo-baseline.{csv,txt}` · 💾 commit
-- [ ] Paso 11 · Falla A (secundario) → `falla-a*` · 💾 commit
-- [ ] Paso 12 · Falla B (primario) → `falla-b*` (+ opcional `falla-b5.*`) · 💾 commit
-- [ ] Paso 13 · Falla C (sin mayoría) → `falla-c*` · 💾 commit
-- [ ] Informe pág. 4–6: RTO/RPO con filas del CSV, mayoría 2/3, "error ≠ no escrito"
+- [x] Pasos 0–5 en su máquina (clúster propio, sin subir evidencia de esos pasos)
+- [x] Paso 10 · **TODO 5** RPO + línea base → `rpo-baseline.{csv,txt}` · 💾 commit
+- [x] Paso 11 · Falla A (secundario) → `falla-a*` · 💾 commit
+- [x] Paso 12 · Falla B (primario) → `falla-b*` (+ opcional `falla-b5.*`) · 💾 commit
+- [x] Paso 13 · Falla C (sin mayoría) → `falla-c*` · 💾 commit
+- [x] Informe pág. 4–6: RTO/RPO con filas del CSV, mayoría 2/3, "error ≠ no escrito"
 
 ---
 
@@ -713,17 +715,20 @@ cd evidence && for f in comandos.md cluster-start.txt rs-inspect.txt datos-manif
 
 ### Lista de control final
 
-- [ ] `config-check.txt` termina en `6/6`
-- [ ] `comprar.txt` termina en `todas las verificaciones pasaron`
-- [ ] `write-concern.csv` tiene 1201 líneas
-- [ ] Cada RTO muestra las filas del CSV
-- [ ] RPO calculado sobre confirmadas, no sobre intentos
+- [x] `config-check.txt` termina en `6/6`
+- [x] `comprar.txt` termina en `todas las verificaciones pasaron`
+- [x] `write-concern.csv` tiene 1201 líneas
+- [x] Cada RTO muestra las filas del CSV
+- [x] RPO calculado sobre confirmadas, no sobre intentos
 - [ ] Predicciones escritas antes de ejecutar
+      Antes de ejecutar: pasos 4 (A) y 9 (B). El paso 7 y las fallas A, B y C tienen la expectativa escrita
+      después (24/10), declarada así en el informe y en `predicciones.md`.
 - [ ] `evidence/comandos.md` con hora y `OK` por paso
-- [ ] Conjunto restaurado (1 PRIMARY, 2 SECONDARY)
-- [ ] Máquina, RAM y SO declarados
-- [ ] Commits de los 3 integrantes, repartidos en el tiempo
-- [ ] `.env.example` sin la licencia en el repo
+      Las líneas de los pasos 7 a 9 tienen la fecha pero no la hora.
+- [x] Conjunto restaurado (1 PRIMARY, 2 SECONDARY)
+- [x] Máquina, RAM y SO declarados
+- [x] Commits de los 3 integrantes, repartidos en el tiempo
+- [x] `.env.example` sin la licencia en el repo
 
 ---
 

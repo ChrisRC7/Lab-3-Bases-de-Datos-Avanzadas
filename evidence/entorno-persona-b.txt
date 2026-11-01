@@ -1,0 +1,1 @@
+﻿Memoria Docker: 8165036032 bytes (7,60 GiB) - Windows / WSL 2

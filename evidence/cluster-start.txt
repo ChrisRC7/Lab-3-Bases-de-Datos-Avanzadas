@@ -1,0 +1,8 @@
+2026-10-22T14:22:35-06:00
+docker compose --profile lab3 ps
+NAME             IMAGE       COMMAND                  SERVICE   CREATED         STATUS                   PORTS
+ti4601-mongo-1   mongo:8.0   "docker-entrypoint.s…"   mongo-1   8 seconds ago   Up 7 seconds (healthy)   27017/tcp
+ti4601-mongo-2   mongo:8.0   "docker-entrypoint.s…"   mongo-2   8 seconds ago   Up 7 seconds (healthy)   27017/tcp
+ti4601-mongo-3   mongo:8.0   "docker-entrypoint.s…"   mongo-3   8 seconds ago   Up 7 seconds (healthy)   27017/tcp
+docker exec ti4601-mongo-1 mongosh --quiet --eval 'try { rs.status().members.forEach(function (m) { print(m.name + "  " + m.stateStr + "  health=" + m.health) }) } catch (e) { print("conjunto no inicializado o nodo sin respuesta: " + (e.codeName || e.message)) }'
+conjunto no inicializado o nodo sin respuesta: NotYetInitialized
