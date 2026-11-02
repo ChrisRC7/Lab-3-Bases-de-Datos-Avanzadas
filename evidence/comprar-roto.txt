@@ -1,9 +1,9 @@
-200 compradores en 1.21 s (165 compras/s)
+200 compradores en 1.19 s (168 compras/s)
 VERIFICACIÓN FALLÓ: confirmadas=200, agotadas=0; esperado 120/80
-VERIFICACIÓN FALLÓ: quedan 106; esperado 0
+VERIFICACIÓN FALLÓ: quedan 110; esperado 0
 OK: 200 órdenes confirmadas en pruebas_ordenes
-VERIFICACIÓN FALLÓ: VIP: resultados=['confirmada', 'confirmada', 'confirmada'], quedan 2; esperado 2 confirmadas, 1 agotada, quedan 2
+OK: 3 compradores de 4 entradas sobre 10: 2 confirmadas, 1 agotada, quedan 2
 OK: la misma orden repetida 5 veces descontó una sola entrada (quedan 4)
 OK: una zona inexistente se resuelve como agotada
 
-Resultado: hay verificaciones fallidas (2026-11-01T23:46:57+00:00)
+Resultado: hay verificaciones fallidas (2026-11-02T00:15:57+00:00)

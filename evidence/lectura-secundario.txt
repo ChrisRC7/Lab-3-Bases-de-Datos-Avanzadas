@@ -1,6 +1,6 @@
 modo                        n  obsoletas  % obsoletas
-w1_secundario             500        473        94.6%
-majority_secundario       500          5         1.0%
+w1_secundario             500        465        93.0%
+majority_secundario       500          0         0.0%
 causal_majority           500          0         0.0%
 
 Resumen: evidence/lectura-secundario.csv

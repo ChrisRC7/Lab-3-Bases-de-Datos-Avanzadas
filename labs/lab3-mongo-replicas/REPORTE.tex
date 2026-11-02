@@ -208,30 +208,33 @@ que encontrar al primario, y por eso la URI del driver lista los tres miembros.
 \textbf{Paso 7: lecturas en secundario} (\texttt{lectura-secundario.csv},
 \texttt{lectura-secundario.txt}). Los pasos 7 a 9 se repitieron el 1/11/2026 en la máquina de los pasos 10 a 13:
 Intel Core i7-6500U (4 hilos), 11 GiB de RAM, Ubuntu 24.04.5, Docker 29.9.2 sin límites de CPU ni RAM y MongoDB
-7.0.45 (\texttt{entorno-pasos-7-13.txt}), con el entorno completo declarado; la corrida anterior queda en el
-historial de git. Hubo 500 intentos por modalidad.
+7.0.45, con el disco libre y solo Neo4j del Lab 4 inactivo en segundo plano (\texttt{entorno-pasos-7-13.txt}). Las
+corridas anteriores quedan en el historial de git: la del 23/10 no declaró la RAM y otra del 1/11 se descartó porque
+coincidió con un \emph{build} de Docker que saturaba el disco. Hubo 500 intentos por modalidad.
 \textbf{Expectativa teórica} (\emph{no se registró una predicción antes de la primera corrida; esta se escribió el
 24/10, antes de esta repetición pero con aquellos resultados ya conocidos, y no es una predicción previa}): con \texttt{w1\_secundario}, casi todas las lecturas obsoletas,
 porque el primario confirma sin esperar a nadie y la lectura llega al secundario antes de que aplique el oplog;
 con \texttt{majority\_secundario}, muchas menos pero no cero, porque al confirmar ya hay un secundario con el
 dato y la lectura puede caer en el otro; con \texttt{causal\_majority}, ninguna, porque la sesión causal hace
-que el secundario espere hasta haber visto la escritura. Los resultados siguieron ese orden:
+que el secundario espere hasta haber visto la escritura. Los resultados respetaron el orden, aunque
+\texttt{majority\_secundario} dio cero en esta corrida:
 
 \begin{center}\footnotesize
 \begin{tabular}{@{}lrrr@{}}
 \toprule
 \textbf{Modalidad} & \textbf{Intentos} & \textbf{Obsoletas} & \textbf{Porcentaje} \\
 \midrule
-\texttt{w1\_secundario} & 500 & 473 & 94,6\,\% \\
-\texttt{majority\_secundario} & 500 & 5 & 1,0\,\% \\
+\texttt{w1\_secundario} & 500 & 465 & 93,0\,\% \\
+\texttt{majority\_secundario} & 500 & 0 & 0,0\,\% \\
 \texttt{causal\_majority} & 500 & 0 & 0,0\,\% \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-Las lecturas obsoletas fueron 473/500 con \texttt{w:1}, pues el primario no espera
-replicación; 5/500 con \texttt{majority}, ya que un tercer nodo puede seguir
-atrasado aunque dos confirmen; y 0/500 con sesión causal y garantías
+Las lecturas obsoletas fueron 465/500 con \texttt{w:1}, pues el primario no espera
+replicación; 0/500 con \texttt{majority}, que no es una garantía: al confirmar basta
+que dos nodos tengan el dato, y la lectura puede ir al secundario atrasado (la
+corrida del 23/10 tuvo 3/500); y 0/500 con sesión causal y garantías
 \texttt{majority}, que permite observar escrituras previas de esa sesión.
 Esto no garantiza frescura para lecturas arbitrarias desde un secundario.
 
@@ -276,15 +279,17 @@ cambiado y el otro no, y una falla puede dejar solo uno aplicado.
 \textbf{Resultado (200 compradores; 120 entradas)} & \textbf{Correcta} & \textbf{Rota} \\
 \midrule
 Órdenes confirmadas / agotadas & 120 / 80 & 200 / 0 \\
-Entradas General restantes & 0 & 106 \\
-VIP: compras confirmadas de 4 sobre 10 & 2 & 3 \\
+Entradas General restantes & 0 & 110 \\
+VIP: compras confirmadas de 4 sobre 10 & 2 & 2 \\
 \bottomrule
 \end{tabular}
 \end{center}
 
 La versión rota separó \texttt{find\_one} y \texttt{update\_one} con
 \texttt{\$set}: varias solicitudes leyeron el mismo saldo y sobrescribieron
-las actualizaciones de otras (\emph{lost updates}). En cambio, la versión
+las actualizaciones de otras (\emph{lost updates}). La carrera depende del
+intercalado: esta vez no se manifestó en VIP, con solo 3 compradores, y sí en la
+corrida del 23/10 (3 confirmadas). En cambio, la versión
 atómica pasó las seis verificaciones, incluida la idempotencia (cinco
 reintentos de la misma orden, un solo descuento). La atomicidad cubre
 \emph{un documento}, no toda la compra: si el proceso cae entre descontar
@@ -311,10 +316,10 @@ muestras por variante (1\,200 observaciones; CSV de 1\,201 líneas).
 \toprule
 \textbf{Garantía} & \textbf{p50 (ms)} & \textbf{p95 (ms)} & \textbf{p99 (ms)} & \textbf{ops/s} \\
 \midrule
-\texttt{w1} & 1,35 & 5,40 & 12,37 & 522 \\
-\texttt{w1\_journal} & 5,08 & 26,44 & 33,91 & 113 \\
-\texttt{majority} & 9,93 & 35,63 & 73,11 & 21 \\
-\texttt{w3} & 3,73 & 5,48 & 7,19 & 254 \\
+\texttt{w1} & 0,94 & 1,58 & 3,25 & 941 \\
+\texttt{w1\_journal} & 16,20 & 58,41 & 125,87 & 42 \\
+\texttt{majority} & 15,31 & 37,05 & 58,25 & 54 \\
+\texttt{w3} & 3,22 & 9,19 & 12,11 & 238 \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -323,20 +328,20 @@ La predicción, anotada antes de la primera corrida (\texttt{comandos.md}), orde
 \texttt{w1}, \texttt{w1\_journal}, \texttt{majority} y \texttt{w3} (quizá la más
 lenta), con \texttt{majority} en torno a 1,5--3 veces \texttt{w1} y diferencias
 pequeñas. Por p50 solo se cumplió que \texttt{w1} es la más rápida: el orden fue
-\texttt{w1}, \texttt{w3}, \texttt{w1\_journal} y \texttt{majority}, que resultó
-7,36 veces \texttt{w1}. \texttt{w1} espera solo a que el primario aplique la
-escritura. \texttt{j:true} agrega la espera a que quede en el journal en disco, de
-modo que sobrevive a un reinicio del proceso; eso subió la mediana a 5,08 ms.
-\texttt{majority} espera además a un secundario y, como
-\texttt{writeConcernMajorityJournalDefault} es \texttt{true} en este conjunto,
-también exige journal. \texttt{w3} espera a los dos secundarios, pero sin pedir
-journal. Eso probablemente explica que \texttt{w3} (3,73 ms) supere a
-\texttt{majority} (9,93 ms) aunque espera a más nodos: en una sola máquina los
-secundarios aplican casi al mismo tiempo y replicar cuesta poco, mientras que el
-disco compartido cuesta más. Las variantes se midieron sucesivamente, así que carga
-y caché también influyen, y es una sola corrida. Los 21 ops/s de \texttt{majority}
-se deben a tres pausas (1,2, 4,0 y 5,1 s) que suman 10,3 de sus 14,2 s, sin
-reflejarse en el p99; no se investigó su causa. Con nodos en regiones distintas,
+\texttt{w1}, \texttt{w3}, \texttt{majority} y \texttt{w1\_journal}, y
+\texttt{majority} resultó 16,3 veces \texttt{w1}. \texttt{w1} espera solo a que el
+primario aplique la escritura. \texttt{j:true} agrega la espera a que quede en el
+journal en disco, de modo que sobrevive a un reinicio del proceso. \texttt{majority}
+espera además a un secundario y, como \texttt{writeConcernMajorityJournalDefault} es
+\texttt{true} en este conjunto, también exige journal. \texttt{w3} espera a los dos
+secundarios, pero sin pedir journal. Los datos forman dos grupos: sin journal,
+\texttt{w1} (0,94 ms) y \texttt{w3} (3,22 ms); con journal, \texttt{majority} (15,31
+ms) y \texttt{w1\_journal} (16,20 ms). Esto indica que aquí el costo dominante es el
+disco, un SSD SATA compartido por los tres nodos, y no la replicación: en una sola
+máquina los secundarios aplican casi al mismo tiempo. Por eso \texttt{w3} supera a
+\texttt{majority} aunque espera a más nodos. Es una sola corrida con variantes medidas
+sucesivamente, así que el empate entre las dos con journal no permite ordenarlas.
+Con nodos en regiones distintas,
 \texttt{majority} sumaría a cada escritura el viaje de ida y vuelta al secundario
 más cercano y \texttt{w3} al más lejano, mientras que \texttt{w1} (y
 \texttt{w1\_journal}) no cambiaría, porque no espera a ninguna réplica. Mediciones
