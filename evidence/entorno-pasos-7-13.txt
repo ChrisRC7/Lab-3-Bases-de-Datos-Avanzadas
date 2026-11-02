@@ -1,0 +1,22 @@
+2026-11-01T18:15:32-06:00
+Máquina de los pasos 7 a 13 (corrida con el disco libre)
+CPU(s):                                  4
+Model name:                              Intel(R) Core(TM) i7-6500U CPU @ 2.50GHz
+               total       usado       libre  compartido   búf/caché  disponible
+Mem:            11Gi       3,7Gi       1,4Gi        80Mi       6,9Gi       7,9Gi
+Ubuntu 24.04.5 LTS
+7.0.0-38-generic
+Docker 29.9.2
+Docker: NCPU=4 MemTotal=12422692864
+Limites contenedor: Memory=0 NanoCpus=0 (0 = sin limite)
+MongoDB 7.0.45
+writeConcernMajorityJournalDefault=true
+Otros contenedores en marcha:
+ti4601-lab4 Up 14 minutes (healthy)
+ti4601-neo4j Up 14 minutes (healthy)
+Presion de disco por paso (/proc/pressure/io, some avg10):
+  antes paso 7: 18:15:33 avg10=2.52 load=1.12
+  despues paso 7: 18:15:52 avg10=46.85 load=2.05
+  despues paso 8: 18:16:00 avg10=33.72 load=3.08
+  antes paso 9: 18:16:20 avg10=4.65 load=2.35
+  despues paso 9: 18:16:41 avg10=46.11 load=3.62

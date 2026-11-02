@@ -724,7 +724,7 @@ cd evidence && for f in comandos.md cluster-start.txt rs-inspect.txt datos-manif
       Antes de ejecutar: pasos 4 (A) y 9 (B). El paso 7 y las fallas A, B y C tienen la expectativa escrita
       después (24/10), declarada así en el informe y en `predicciones.md`.
 - [ ] `evidence/comandos.md` con hora y `OK` por paso
-      Las líneas de los pasos 7 a 9 tienen la fecha pero no la hora.
+      Las líneas del 23/10 de los pasos 7 a 9 no tienen hora; la repetición del 1/11 sí la tiene.
 - [x] Conjunto restaurado (1 PRIMARY, 2 SECONDARY)
 - [x] Máquina, RAM y SO declarados
 - [x] Commits de los 3 integrantes, repartidos en el tiempo

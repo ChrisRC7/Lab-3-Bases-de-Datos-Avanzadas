@@ -48,7 +48,8 @@
 \begin{document}
 
 {\LARGE\bfseries\color{acc} Laboratorio 3 --- Conjuntos de réplicas en MongoDB}\\[2pt]
-{\footnotesize\color{gris} TI-4601 Bases de Datos Avanzadas $\cdot$ Grupo 3 $\cdot$ Fabricio Mena $\cdot$ Christopher Rodriguez $\cdot$ Alisson Redondo}
+{\footnotesize\color{gris} TI-4601 Bases de Datos Avanzadas $\cdot$ Grupo 3 $\cdot$ Fabricio Mena $\cdot$ Christopher Rodriguez $\cdot$ Alisson Redondo}\\
+{\footnotesize\color{gris} Repositorio: \texttt{https://github.com/ChrisRC7/Lab-3-Bases-de-Datos-Avanzadas}}
 
 \vspace{4pt}\hrule\vspace{6pt}
 
@@ -206,37 +207,46 @@ solo el primario acepta escrituras y los secundarios solo aplican lo que trae el
 que encontrar al primario, y por eso la URI del driver lista los tres miembros.
 
 \textbf{Paso 7: lecturas en secundario} (\texttt{lectura-secundario.csv},
-\texttt{lectura-secundario.txt}). Este paso se ejecutó en una ASUS Vivobook X1504ZA (Intel Core i7-1255U, Windows con Docker Desktop y
-WSL 2, kernel 6.18.54.1, MongoDB 8.0.34), con 500 intentos por modalidad.
-\textbf{Expectativa teórica} (\emph{no se registró una predicción antes de ejecutar; esta se escribió el 24/10, al
-armar el informe, y no es una predicción previa}): con \texttt{w1\_secundario}, casi todas las lecturas obsoletas,
+\texttt{lectura-secundario.txt}). Los pasos 7 a 9 se repitieron el 1/11/2026 en la máquina de los pasos 10 a 13:
+Intel Core i7-6500U (4 hilos), 11 GiB de RAM, Ubuntu 24.04.5, Docker 29.9.2 sin límites de CPU ni RAM y MongoDB
+7.0.45, con el disco libre y solo Neo4j del Lab 4 inactivo en segundo plano (\texttt{entorno-pasos-7-13.txt}). Las
+corridas anteriores quedan en el historial de git: la del 23/10 no declaró la RAM y otra del 1/11 se descartó porque
+coincidió con un \emph{build} de Docker que saturaba el disco. Hubo 500 intentos por modalidad.
+\textbf{Expectativa teórica} (\emph{no se registró una predicción antes de la primera corrida; esta se escribió el
+24/10, antes de esta repetición pero con aquellos resultados ya conocidos, y no es una predicción previa}): con \texttt{w1\_secundario}, casi todas las lecturas obsoletas,
 porque el primario confirma sin esperar a nadie y la lectura llega al secundario antes de que aplique el oplog;
 con \texttt{majority\_secundario}, muchas menos pero no cero, porque al confirmar ya hay un secundario con el
 dato y la lectura puede caer en el otro; con \texttt{causal\_majority}, ninguna, porque la sesión causal hace
-que el secundario espere hasta haber visto la escritura. Los resultados siguieron ese orden:
+que el secundario espere hasta haber visto la escritura. Los resultados respetaron el orden, aunque
+\texttt{majority\_secundario} dio cero en esta corrida:
 
 \begin{center}\footnotesize
 \begin{tabular}{@{}lrrr@{}}
 \toprule
 \textbf{Modalidad} & \textbf{Intentos} & \textbf{Obsoletas} & \textbf{Porcentaje} \\
 \midrule
-\texttt{w1\_secundario} & 500 & 499 & 99,8\,\% \\
-\texttt{majority\_secundario} & 500 & 3 & 0,6\,\% \\
+\texttt{w1\_secundario} & 500 & 465 & 93,0\,\% \\
+\texttt{majority\_secundario} & 500 & 0 & 0,0\,\% \\
 \texttt{causal\_majority} & 500 & 0 & 0,0\,\% \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-Las lecturas obsoletas fueron 499/500 con \texttt{w:1}, pues el primario no espera
-replicación; 3/500 con \texttt{majority}, ya que un tercer nodo puede seguir
-atrasado aunque dos confirmen; y 0/500 con sesión causal y garantías
+Las lecturas obsoletas fueron 465/500 con \texttt{w:1}, pues el primario no espera
+replicación; 0/500 con \texttt{majority}, que no es una garantía: al confirmar basta
+que dos nodos tengan el dato, y la lectura puede ir al secundario atrasado (la
+corrida del 23/10 tuvo 3/500); y 0/500 con sesión causal y garantías
 \texttt{majority}, que permite observar escrituras previas de esa sesión.
 Esto no garantiza frescura para lecturas arbitrarias desde un secundario.
 
-\textbf{CAP/PACELC.} Sin quórum, MongoDB no puede confirmar escrituras por
-mayoría: privilegia su consistencia frente a la disponibilidad de esas
-escrituras (CAP). Sin partición, \texttt{w:1} reduce la espera y
-\texttt{majority} exige replicación (PACELC). Para ``mis entradas'' se
+\textbf{CAP/PACELC por modo.} \texttt{w1\_secundario} prioriza disponibilidad
+y baja latencia y sacrifica consistencia: el primario confirma sin quórum y,
+ante una falla, esa escritura puede revertirse. \texttt{majority\_secundario}
+prioriza consistencia en la escritura, que sin quórum no se confirma (CP) y
+sin partición cuesta latencia (PACELC), pero la lectura en un secundario aún
+puede salir obsoleta. \texttt{causal\_majority} prioriza consistencia dentro
+de la sesión: el secundario espera hasta alcanzar la escritura, y sacrifica
+latencia y disponibilidad de la lectura si ese secundario no avanza. Para ``mis entradas'' se
 prefiere lectura causal o del primario; ``eventos destacados'' puede tolerar
 secundarios atrasados. Los tres nodos comparten una computadora: estos
 porcentajes no se extrapolan a una red distribuida real.
@@ -253,8 +263,16 @@ descontar. El stock se actualiza con un solo \texttt{update\_one}:
 \texttt{zonas} el nombre pedido y \texttt{disponibles >= cantidad};
 \texttt{\$inc} sobre \texttt{zonas.\$.disponibles} efectúa el descuento
 atómico. Dos condiciones independientes, \texttt{zonas.nombre} y
-\texttt{zonas.disponibles}, podrían satisfacerse en zonas distintas
-(p.~ej., General con 0 y VIP con 10), admitiendo una compra inválida.
+\texttt{zonas.disponibles}, pueden satisfacerse en zonas distintas. Con
+\texttt{zonas: [\{nombre: "General", disponibles: 0\}, \{nombre: "VIP", disponibles: 10\}]}
+y una compra de 2 en General, las condiciones separadas hacen match (General
+aporta el nombre y VIP las entradas) y el \texttt{\$} no garantiza apuntar a
+General, así que se vende sin stock; con \texttt{\$elemMatch} no hay match y
+la orden queda \texttt{agotada}. Dos \texttt{update\_one} simultáneos al mismo
+documento se serializan: cada uno evalúa su filtro y aplica su cambio sin
+intercalarse con el otro, y no se pierde ningún \texttt{\$inc}. Sobre documentos
+distintos no hay esa garantía: sin transacción, otro cliente puede ver uno
+cambiado y el otro no, y una falla puede dejar solo uno aplicado.
 
 \begin{center}\footnotesize
 \begin{tabular}{@{}lrr@{}}
@@ -262,21 +280,30 @@ atómico. Dos condiciones independientes, \texttt{zonas.nombre} y
 \textbf{Resultado (200 compradores; 120 entradas)} & \textbf{Correcta} & \textbf{Rota} \\
 \midrule
 Órdenes confirmadas / agotadas & 120 / 80 & 200 / 0 \\
-Entradas General restantes & 0 & 115 \\
-VIP: compras confirmadas de 4 sobre 10 & 2 & 3 \\
+Entradas General restantes & 0 & 110 \\
+VIP: compras confirmadas de 4 sobre 10 & 2 & 2 \\
 \bottomrule
 \end{tabular}
 \end{center}
 
 La versión rota separó \texttt{find\_one} y \texttt{update\_one} con
 \texttt{\$set}: varias solicitudes leyeron el mismo saldo y sobrescribieron
-las actualizaciones de otras (\emph{lost updates}). En cambio, la versión
+las actualizaciones de otras (\emph{lost updates}). La carrera depende del
+intercalado: esta vez no se manifestó en VIP, con solo 3 compradores, y sí en la
+corrida del 23/10 (3 confirmadas). En cambio, la versión
 atómica pasó las seis verificaciones, incluida la idempotencia (cinco
 reintentos de la misma orden, un solo descuento). La atomicidad cubre
 \emph{un documento}, no toda la compra: si el proceso cae entre descontar
 el evento y marcar la orden \texttt{confirmada}, puede quedar
 \texttt{pendiente} con stock ya reducido. Se detectarían órdenes pendientes
 antiguas para reconciliarlas; no se debe reejecutar ciegamente el descuento.
+Con la zona sin compras en curso, se compara \texttt{capacidad} $-$
+\texttt{disponibles} con la suma de órdenes confirmadas: si la diferencia
+incluye a la pendiente, ya descontó y se marca \texttt{confirmada}; si no, se
+marca \texttt{agotada}. La garantía del descuento es \textbf{como máximo una
+vez}: reintentar con el mismo \texttt{orden\_id} no descuenta de nuevo, pero
+sin reconciliación la orden puede quedar a medias, así que no es «exactamente
+una vez».
 
 \textbf{Paso 9: costo de \emph{write concern}} (\texttt{write-concern.csv},
 \texttt{write-concern.txt}). El \textbf{TODO 4} usa
@@ -290,25 +317,38 @@ muestras por variante (1\,200 observaciones; CSV de 1\,201 líneas).
 \toprule
 \textbf{Garantía} & \textbf{p50 (ms)} & \textbf{p95 (ms)} & \textbf{p99 (ms)} & \textbf{ops/s} \\
 \midrule
-\texttt{w1} & 1,13 & 1,67 & 2,07 & 859 \\
-\texttt{w1\_journal} & 2,26 & 3,89 & 5,70 & 402 \\
-\texttt{majority} & 3,67 & 4,97 & 6,37 & 273 \\
-\texttt{w3} & 2,57 & 3,10 & 3,39 & 382 \\
+\texttt{w1} & 0,94 & 1,58 & 3,25 & 941 \\
+\texttt{w1\_journal} & 16,20 & 58,41 & 125,87 & 42 \\
+\texttt{majority} & 15,31 & 37,05 & 58,25 & 54 \\
+\texttt{w3} & 3,22 & 9,19 & 12,11 & 238 \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-La predicción previa situaba \texttt{w1} como la más rápida y
-\texttt{majority} en torno a 1,5--3 veces su latencia. La mediana de
-\texttt{majority} resultó 3,25 veces la de \texttt{w1}; exigir journal en
-el primario elevó la mediana a 2,26 ms. Aunque \texttt{w3} fue más rápido
-que \texttt{majority} en esta corrida, no representa una ventaja general:
-son variantes medidas sucesivamente, con efectos de carga, caché y
-sincronización. En tres nodos, \texttt{w3} exige tres confirmaciones y
-\texttt{majority} dos; con latencia entre regiones la espera de réplicas
-puede crecer mucho más. Mediciones realizadas en la máquina
-descrita arriba, bajo contenedores locales (sin latencia de red interregional);
-la memoria disponible para el motor Docker fue de 7,60 GiB, según docker info.
+La predicción, anotada antes de la primera corrida (\texttt{comandos.md}), ordenaba
+\texttt{w1}, \texttt{w1\_journal}, \texttt{majority} y \texttt{w3} (quizá la más
+lenta), con \texttt{majority} en torno a 1,5--3 veces \texttt{w1} y diferencias
+pequeñas. Por p50 solo se cumplió que \texttt{w1} es la más rápida: el orden fue
+\texttt{w1}, \texttt{w3}, \texttt{majority} y \texttt{w1\_journal}, y
+\texttt{majority} resultó 16,3 veces \texttt{w1}. \texttt{w1} espera solo a que el
+primario aplique la escritura. \texttt{j:true} agrega la espera a que quede en el
+journal en disco, de modo que sobrevive a un reinicio del proceso. \texttt{majority}
+espera además a un secundario y, como \texttt{writeConcernMajorityJournalDefault} es
+\texttt{true} en este conjunto, también exige journal. \texttt{w3} espera a los dos
+secundarios, pero sin pedir journal. Los datos forman dos grupos: sin journal,
+\texttt{w1} (0,94 ms) y \texttt{w3} (3,22 ms); con journal, \texttt{majority} (15,31
+ms) y \texttt{w1\_journal} (16,20 ms). Esto indica que aquí el costo dominante es el
+disco, un SSD SATA compartido por los tres nodos, y no la replicación: en una sola
+máquina los secundarios aplican casi al mismo tiempo. Por eso \texttt{w3} supera a
+\texttt{majority} aunque espera a más nodos. Es una sola corrida con variantes medidas
+sucesivamente, así que el empate entre las dos con journal no permite ordenarlas.
+Con nodos en regiones distintas,
+\texttt{majority} sumaría a cada escritura el viaje de ida y vuelta al secundario
+más cercano y \texttt{w3} al más lejano, mientras que \texttt{w1} (y
+\texttt{w1\_journal}) no cambiaría, porque no espera a ninguna réplica. Mediciones
+realizadas en la máquina descrita arriba, bajo contenedores locales (sin latencia
+de red interregional); \texttt{docker info} reporta 4 CPU y 11,6 GiB, sin límites por
+contenedor.
 
 \textbf{Decisiones de los cinco TODO.} En \textbf{TODO 1},
 \texttt{ordered=False} permite continuar el lote tras errores individuales;
@@ -319,7 +359,7 @@ estimar RPO, sin confundir error del cliente con ausencia de escritura.
 
 \section{Fallas (pasos 10 a 13)}
 
-\textbf{Máquina de los pasos 10 a 13.} Intel Core i7-6500U (4 hilos), 11 GiB de RAM, Ubuntu 24.04.5
+\textbf{Máquina de los pasos 7 a 13.} Intel Core i7-6500U (4 hilos), 11 GiB de RAM, Ubuntu 24.04.5
 (kernel 7.0), Docker 29.9.2 sin límites de CPU ni RAM y \texttt{-{}-wiredTigerCacheSizeGB 0.25} por nodo.
 \textbf{Se usó MongoDB 7.0.45 y no 8.0:} \texttt{mongo:8.0} no arranca en kernels 6.19 o más nuevos
 (SERVER-121912, TCMalloc y \texttt{rseq}), así que un \texttt{docker-compose.override.yml} local (no
@@ -361,8 +401,10 @@ C, sin mayoría & mongo-1 y 2 & 109 & 95 & 14 & \texttt{WTimeout} $\times$3, \te
 \bottomrule
 \end{tabular}
 \end{center}
-{\footnotesize * En C el primario vuelve cuando se reinician los nodos caídos, no por una elección automática:
-ese «RTO» depende del operador (\texttt{sleep 20 + 10} del guion), no de MongoDB.}
+{\footnotesize * Medido desde la señal, que se escribió tarde (ver Falla C). Entre la última y la primera escritura
+confirmada pasaron \textbf{43,25 s} (1792818002.918506 $-$ 1792817959.666162). En C el primario vuelve cuando se
+reinician los nodos caídos, no por una elección automática: ese «RTO» depende del operador (\texttt{sleep 20 + 10}
+del guion), no de MongoDB.}
 
 \subsection{Falla A: cae un secundario}
 
@@ -479,7 +521,11 @@ se escribió en \texttt{...968.94}. Por los tiempos y el tipo de error, esas fil
 Sin latidos de los otros dos, mongo-3 hace \emph{step down} pasado el \texttt{electionTimeoutMillis}, aunque
 siga vivo. Eso evita el \emph{split-brain}: un primario aislado podría aceptar escrituras que otra mayoría
 nunca vería. No es una elección, es el primario renunciando; y como un solo nodo no gana ninguna elección,
-nadie más asume. \textbf{Dos fases de error:} (1) \texttt{WTimeoutError} y \texttt{WriteConcernError} (seq 14
+nadie más asume. \textbf{Cuánto tardó:} los nodos cayeron entre el seq 13 (\texttt{...959,67}) y el envío del seq
+14 (\texttt{...960,16}); el seq 16 aún recibió \texttt{WTimeoutError} en \texttt{...968,09} y el seq 17 terminó en
+\texttt{...972,67}, tras lo cual solo hay \texttt{ServerSelectionTimeoutError}. El \emph{step down} ocurrió entre
+unos 8 y 13 s después de la caída, compatible con \texttt{electionTimeoutMillis} de 10 s; el CSV no da el instante
+exacto. \textbf{Dos fases de error:} (1) \texttt{WTimeoutError} y \texttt{WriteConcernError} (seq 14
 a 17): mongo-3 todavía era primario, \textbf{aplicó} la escritura localmente y no consiguió el \emph{ack} de
 un segundo nodo dentro de \texttt{wtimeout=2000 ms}; el seq 17 terminó como \texttt{WriteConcernError} cuando
 el primario hizo \emph{step down} con la operación esperando. (2) \texttt{ServerSelectionTimeoutError} (seq

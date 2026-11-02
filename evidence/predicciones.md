@@ -16,7 +16,9 @@ Fabricio Mena · 22/10/2026, 14:24 · antes de correr `generar_datos.py` y `carg
 ## Paso 7: lecturas en secundario
 
 *No se registró una predicción antes de ejecutar. La expectativa teórica, escrita el 24/10 al armar
-el informe, está en la sección 3 de `labs/lab3-mongo-replicas/REPORTE.tex`.*
+el informe, está en la sección 3 de `labs/lab3-mongo-replicas/REPORTE.tex`. Los pasos 7 a 9 se
+repitieron el 1/11/2026 en otra máquina: la expectativa es anterior a esa repetición, pero ya se
+conocían los resultados de la primera corrida, así que tampoco cuenta como predicción previa.*
 
 ## Paso 9: costo del write concern
 
